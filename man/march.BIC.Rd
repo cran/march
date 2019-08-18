@@ -9,6 +9,9 @@ march.BIC(model)
 \arguments{
 \item{model}{The model for which the BIC has to be computed.}
 }
+\value{
+The number of parameters of the given model and its BIC.
+}
 \description{
 The BIC (Bayesian Information Criterion) is computed for
  a given \code{\link{march.Model-class}} according to the data
@@ -21,4 +24,3 @@ march.BIC(indepModel)
 \author{
 Ogier Maitre
 }
-

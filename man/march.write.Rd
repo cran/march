@@ -19,4 +19,3 @@ march.write(filename, object, force = FALSE)
 Save a march.Model into a file pointed by \emph{filename}. The save will fails
 if the file already exists unless force has been set to TRUE.
 }
-

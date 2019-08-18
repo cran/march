@@ -14,7 +14,7 @@ march.AIC(model)
 \item{model}{The model for which the AIC has to be computed.}
 }
 \value{
-The AIC of the given model.
+The number of parameters of the given model and its AIC.
 }
 \description{
 Compute Akaike Information Criterion (AIC).
@@ -30,4 +30,3 @@ march.AIC(indepModel)
 \author{
 Ogier Maitre
 }
-

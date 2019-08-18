@@ -23,6 +23,7 @@ The model used here is described into :
  \describe{
    \item{\code{Q}:}{A matrix of \code{\link{numeric}} representing the transition matrix associated with the 
    current MTD model.}
+   \item{\code{S}:}{A list of matrices of \code{\link{numeric}} representing the transition matrices between the covariates and the dependent variable}
    \item{\code{phi}:}{A vector of \code{\link{numeric}} representing the vector of lag parameters.}
    \item{\code{order}:}{An \code{\link{integer}} representing the order of the model.}
  }
@@ -30,4 +31,3 @@ The model used here is described into :
 \seealso{
 \code{\link{march.mtd.construct}}, \code{\link{march.Model-class}}.
 }
-

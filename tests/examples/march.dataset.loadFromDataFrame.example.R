@@ -17,3 +17,19 @@ weighting <- rep(1.5,1000)
 weighting[501:1000] <- rep(0.5,500)
 sleep.w <- march.dataset.loadFromDataFrame(sleep_df, MARGIN = 2,
                            weights = weighting, missingDataRep = NA)
+
+# We add two covariates to the sleep data. The first is the sex of the subject
+# (1 for male, 2 for female), and the second is the age range (1 for younger
+# than 40, 2 for older than 40). We suppose that the first 250 sequences 
+# represent men older than 40, the next 250 sequences men younger than 40,
+# the next 250 women younger than 40 and the last 250 women older than 40.
+# We build the two tables of covariates and bind them together to obtain a
+# three dimensional array that can be handled by MARCH.
+covariates.sex<-rbind(matrix(1,500,7),matrix(1,500,7))
+covariates.age<-rbind(matrix(1,250,7), matrix(2,250,7), matrix(1,250,7),
+                    matrix(2,250,7))
+covariates<-array(0,c(1000,7,2))
+covariates[ , ,1]<-covariates.sex
+covariates[ , ,2]<-covariates.age
+# We build a MARCH dataset object containing these covariates.
+sleep.covariates<-march.dataset.loadFromDataFrame(sleep_df,covariates=covariates)

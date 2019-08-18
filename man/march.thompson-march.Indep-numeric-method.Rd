@@ -17,4 +17,3 @@ provides it to the march.thompson function.}
 This method is called with the object "march.Indep" and the aplha "numeric" and
 provides it to the march.thompson function.
 }
-

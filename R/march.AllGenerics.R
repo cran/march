@@ -1,28 +1,21 @@
 # This file is part of March
-#
+# 
 # March is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-#
+# 
 # Foobar is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#
+# 
 # You should have received a copy of the GNU General Public License
 # along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Copyrigth 2014, Ogier Maitre, Andre Berchtold
-# ogier.maitre@epfl.ch andre.berchtold@unil.ch
+# Copyrigth 2014, Ogier Maitre, Andre Berchtold 
+# ogier.maitre@epfl.ch andre.berchtold@unil.ch 
 #
-
-
-# the imported methods which needed for march are added to the 
-# NAMMESPACE file with the following Code.
-#' @importFrom stats C qchisq rnorm runif
-#' @importFrom utils read.table write.table
-#' @importFrom methods new
 
 
 ###############################################################################
@@ -41,20 +34,20 @@ march.model.show <- function(object){
 march.indep.show <- function(object){
   cat(march.name(object))
   cat("\n")
-
+  
   s <- array(0,c(1,length(object@indP)))
   colnames(s) <- 1:object@y@K
-
+  
   s[1,] <- object@indP
   rownames(s) <- c("indP")
   print(s)
   cat("\n")
-
+  
   s[1,] <- object@indC
   rownames(s) <- c("indC")
   print(s)
   cat("\n")
-
+  
   march.model.show(object)
 }
 
@@ -62,89 +55,123 @@ march.indep.show <- function(object){
 march.mc.show <- function(object){
   cat(march.name(object))
   cat("\nRC : \n")
-
+  
   s <- march.h.mc.printableMatrix(object@RC,object@order,object@y@K)
   print(s)
   cat("\n")
-
+  
   cat("RT : \n")
   s <- march.h.mc.printableMatrix(object@RT,object@order,object@y@K)
   print(s)
   cat("\n")
   cat("order : ",object@order,"\n")
-
+  
   march.model.show(object)
 }
 
 # show method for mtd object
 march.mtd.show <- function(object){
+  placeCovar <- which(object@MCovar==1)
+  
   cat(march.name(object))
   cat("\n")
-  if( dim(object@Q)[1]==1 ){
-
-    cat("Q : \n")
-    for( i in 1:object@y@K ){
-      cat(sprintf("%.4f", object@Q[1,i,]))
-      cat("\n")
-    }
-  }
-  else{
-    for( g in 1:dim(object@Q)[1]){
-      cat(sprintf("Q%d : \n",g))
-      for( i in 1:object@y@K ){
-        cat(sprintf("%.4f", object@Q[g,i,]))
-        cat("\n")
-      }
-    }
-  }
-
-  cat("\n")
-  cat("phi : ")
-  cat(sprintf("%.4f",object@phi))
-  cat("\n\n")
-  cat("order : ",object@order,"\n")
-  march.model.show(object)
-}
-
-# show method for dcmm object
-march.dcmm.show <- function(object){
-  cat(march.name(object))
-  cat("\nRA : \n")
-  s <- march.h.mc.printableMatrix(march.dcmm.h.compactA(object),object@orderHC,object@M)
+  cat("Transition matrix : \n")
+  s <- march.cov.h.mc.printableMatrix(object@RA,object@order,object@y@K,object@y@Kcov[placeCovar],sum(object@MCovar))
   print(s)
   cat("\n")
-
-  cat("RB : \n")
-  for( i in 1:object@M ){
-    cat(i,":\n");
-    if( object@y@K^object@orderVC==1 ){
-      s <- t(data.frame(object@RB[i,,]))
-      s <- march.h.mc.printableMatrix(s,1,object@y@K)
-    }
-    else{
-      s <- march.h.mc.printableMatrix(object@RB[i,,],object@orderVC,object@y@K)
-    }
-    print(s)
-  }
-
-  cat("\nPi : \n")
-  for( i in 1:object@orderHC ){
-    for( j in 1:(object@M^(i-1))){
-      cat(sprintf("%.4f",object@Pi[i,j,]))
-      cat("\n")
-    }
-    cat("\n")
-  }
-
+  # if( dim(object@Q)[1]==1 ){
+  #   
+  #   cat("Q : \n")
+  #   for( i in 1:object@y@K ){
+  #     cat(sprintf("%.4f", object@Q[1,i,]))
+  #     cat("\n")
+  #   }
+  # }
+  # else{
+  #   for( g in 1:dim(object@Q)[1]){
+  #     cat(sprintf("Q%d : \n",g))
+  #     for( i in 1:object@y@K ){
+  #       cat(sprintf("%.4f", object@Q[g,i,]))
+  #       cat("\n")
+  #     }    
+  #   }
+  # }
+  # cat("\n")
+  # if(sum(object@MCovar)>0){
+  #   for(g in 1:sum(object@MCovar)){
+  #     cat(sprintf("S%d : \n",g))
+  #     for(i in 1:object@y@Kcov[placeCovar[g]]){
+  #       cat(sprintf("%.4f", object@S[[g]][i,]))
+  #       cat("\n")
+  #     }
+  #   }
+  # }
+  # cat("\n")
+  # cat("phi : ")
+  # cat(sprintf("%.4f",object@phi))
+  # cat("\n\n")
+  # cat("order : ",object@order,"\n")
   march.model.show(object)
 }
 
-# this part describes how a call to show method (print) should be
+march.dcmm.show <- function(object){
+	  placeACovar <- which(object@AMCovar==1)
+	  placeCCovar <- which(object@CMCovar==1)
+	  AtmCovar <- 1
+  	if(sum(object@AMCovar>0)){
+  		AtmCovar <-prod(object@y@Kcov[placeACovar])
+  	}
+	
+  	cat(march.name(object))
+  	cat("\nRA : \n")
+  	if(object@orderHC==0){
+  		s <- march.cov.h.mc.printableMatrix(object@A[1:AtmCovar,,drop=FALSE],0,object@M,object@y@Kcov[placeACovar],sum(object@AMCovar))
+  	}else{
+  		s <- march.cov.h.mc.printableMatrix(march.dcmm.cov.h.compactA(object),object@orderHC,object@M,object@y@Kcov[placeACovar],sum(object@AMCovar))
+  	}
+  	print(s)
+  	cat("\n")
+  
+  	cat("RB : \n")
+   	for( i in 1:object@M ){
+     	cat(i,":\n");
+   	  if(object@orderVC==0){
+   	    s <- march.cov.h.mc.printableMatrix.orderVC0(matrix(object@RB[,,i],AtmCovar,object@y@K),object@y@K,object@y@Kcov[placeCCovar],sum(object@CMCovar))
+   	  }else{
+        s <- march.cov.h.mc.printableMatrix(object@RB[,,i],object@orderVC,object@y@K,object@y@Kcov[placeCCovar],sum(object@CMCovar))
+   	  }
+   	  print(s)
+    }  
+  	cat("\nPi : \n")
+  	for( i in 1:object@orderHC){
+    	for( j in 1:(AtmCovar*object@M^(i-1))){
+      		cat(sprintf("%.4f",object@Pi[j,,i]))
+    		cat("\n")
+    	}
+    	cat("\n")
+	}
+  	march.model.show(object)
+}
+
+march.AIC.show <- function(object){
+  cat("Number of parameters : ",object@nbParams,"\n")
+  cat("AIC: ",object@AIC,"\n")
+}
+
+march.BIC.show <- function(object){
+  cat("Number of parameters : ",object@nbParams,"\n")
+  cat("BIC: ",object@BIC,"\n")
+}
+
+# this part describes how a call to show method (print) should be 
 # redirected to the rigth method, depending on the object considered.
 setMethod(f="show",signature="march.Indep",definition=march.indep.show)
 setMethod(f="show",signature="march.Mc",definition=march.mc.show)
 setMethod(f="show",signature="march.Mtd",definition=march.mtd.show)
 setMethod(f="show",signature="march.Dcmm",definition=march.dcmm.show)
+setMethod(f="show",signature="march.AIC",definition=march.AIC.show)
+setMethod(f="show",signature="march.BIC",definition=march.BIC.show)
+
 
 ###############################################################################
 # nbParams methods here, are the implementation of generic methods to obtain
@@ -169,38 +196,147 @@ march.indep.nbParams <- function(object){
 
 # nbParams method for mtd object
 march.mtd.nbParams <- function(object){
-  dim(object@Q)[1]*object@y@K*(object@y@K-1) + object@order-1-object@nbZeros+length(which(rowSums(object@Q)==0));
+  nparam <- 0
+  placeCovar <- which(object@MCovar==1)
+  
+  #Number of parameters of the matrix Q
+  for(i in 1:dim(object@Q)[1]){
+    if(object@phi[i]>0){
+      nparam <- nparam+object@y@K*(object@y@K-1)+sum(rowSums(object@Q[i,,])==0)-sum(object@Q[i,,]==0)
+    }
+  }
+  
+  #Number of parameters in the vector of lags
+  nparam <- nparam+length(object@phi)-1-sum(object@phi==0)
+  
+  #Number of parameters of the covariates transition matrices
+  if(sum(object@MCovar)>0){
+    for(i in 1:sum(object@MCovar)){
+      if(object@phi[object@order+i]>0){
+        nparam <- nparam+object@y@Kcov[placeCovar[i]]*(object@y@K-1)-sum(object@S[[i]]==0)+sum(rowSums(object@S[[i]])==0)
+      }
+    }
+  }
+  nparam
 }
 
 # nbParams method for dcmm object
 march.dcmm.nbParams <- function(object){
-  nbPPi <- 0
-  # get the number of parameters for Pi :
-  for( t in 1:object@orderHC ){
-    nbPPi <- nbPPi + object@M^(t-1)*(object@M-1)
-    for( i in 1:object@M^(t-1)){
-      for( j in 1:object@M){
-        if( object@Pi[t,i,j]==0 ){ nbPPi <- nbPPi-1 }
+  
+  placeACovar <- which(object@AMCovar==1)
+  placeCCovar <- which(object@CMCovar==1)
+  AtmCovar <- 1
+  if(sum(object@AMCovar>0)){
+    for (i in 1:sum(object@AMCovar)){
+      AtmCovar <- AtmCovar*object@y@Kcov[placeACovar[i]]
+    }
+  }
+  #Pi
+  nbparpi <- 0
+  
+  if(object@M>1 & object@orderHC>0){
+    for(t in 1:object@orderHC){
+      nbparpi <- nbparpi+object@M^(t-1)*AtmCovar*(object@M-1)
+      for(i in 1:(object@M^(t-1)*AtmCovar)){
+        for(j in 1:object@M){
+          if(object@Pi[i,j,t]==0){
+            nbparpi <- nbparpi-1
+          }
+        }
+        if(sum(object@Pi[i,,t])==0){
+          nbparpi <- nbparpi+1
+        }
       }
     }
-    if( all(object@Pi==0)){
-      nbPPi <- nbPPi+1
+  }
+  
+  #A
+  nbparA <- 0
+  
+  if(object@M>1){
+    if(object@Amodel=="complete" & object@APhi[1,1]!=0){
+      if(object@orderHC==0){
+        nbparA <- object@M-1-sum(object@AQ[1,1,]==0)
+      }else{
+        nbparA <- object@M^object@orderHC*(object@M-1)-sum(object@AQ[1,,]==0)+sum(rowSums(object@AQ[1,,])==0)
+      }
+    }else if(object@Amodel=="mtd" & sum(object@APhi[1,1:object@orderHC])>0){
+      nbparA <- object@M*(object@M-1)-sum(object@AQ[1,,]==0)+sum(rowSums(object@AQ[1,,])==0)
+    }else if(object@Amodel=="mtdg" & sum(object@APhi[1,1:object@orderHC])>0){
+      for(ord in 1:object@orderHC){
+        if(object@APhi[1,ord]!=0){
+          nbparA <- nbparA+object@M*(object@M-1)-sum(object@AQ[ord,,]==0)+sum(rowSums(object@AQ[ord,,])==0)
+        }
+      }
     }
+    
+    if(sum(object@AMCovar)>0){
+      if(object@Amodel=="complete"){
+        CCov <- 1
+      }else{
+        CCov <- object@orderHC
+      }
+      
+      for(ord in 1:sum(object@AMCovar)){
+        if(object@APhi[1,CCov+ord]!=0){
+          KC <- object@y@Kcov[placeACovar[ord]]
+          nbparA <- nbparA+KC*(object@M-1)-sum(object@ATCovar[[ord]]==0)+sum(rowSums(object@ATCovar[[ord]])==0)
+        }
+      }
+    }
+    
+    #Independent parameters in APhi
+    
+    nbparA <- nbparA+length(object@APhi[1,])-1-sum(object@APhi[1,]==0)
   }
-
-  # get the number of parameters for A
-  RA <- march.dcmm.h.compactA(d=object)
-  nbPA <- object@M^object@orderHC*(object@M-1)-sum(RA==0)+sum(rowSums(RA)==0)
-
-  # get the number of parameters for RB
-  nbPRB <- 0
-  for( i in 1:object@M ){
-    nbPRB <- nbPRB+object@y@K^object@orderVC*(object@y@K-1)-sum(object@RB[1,,]==0)+sum(colSums(object@RB)==0)
+  
+  #Number of parameters visible process
+  nbparC <- 0
+  for(state in 1:object@M){
+    if(object@Cmodel=="complete" & object@CPhi[1,1,state]!=0){
+      if(sum(object@CMCovar)==0){
+        if(object@orderVC==0 & sum(object@CMCovar)==0){
+          nbparC <- nbparC+object@y@K^object@orderVC*(object@y@K-1)-sum(object@RB[,,state]==0)+sum(sum(object@RB[,,state])==0)
+        }else{
+          nbparC <- nbparC+object@y@K^object@orderVC*(object@y@K-1)-sum(object@RB[,,state]==0)+sum(rowSums(object@RB[,,state])==0)
+        }
+      }else{
+        nbparC <- nbparC+object@y@K^object@orderVC*(object@y@K-1)-sum(object@CQ[1,,,state]==0)+sum(rowSums(object@CQ[1,,,state])==0)
+      }
+    }else if(object@Cmodel=="mtd" & sum(object@CPhi[1,1:object@orderVC,state])!=0){
+      nbparC <- nbparC+object@y@K*(object@y@K-1)-sum(object@CQ[1,,,state]==0)+sum(rowSums(object@CQ[1,,,state])==0)
+    }else if(object@Cmodel=="mtdg" & sum(object@CPhi[1,1:object@orderVC,state])!=0){
+      for(ord in 1:object@orderVC){
+        if(object@CPhi[1,ord,state]!=0){
+          nbparC <- nbparC+object@y@K*(object@y@K-1)-sum(object@CQ[ord,,,state]==0)+sum(rowSums(object@CQ[ord,,,state])==0)
+        }
+      }
+    }
+    
+    if(sum(object@CMCovar)>0){
+      if(object@Cmodel=="complete"){
+        CCov <- 1
+      }else{
+        CCov <- object@orderVC
+      }
+      
+      for(ord in 1:sum(object@CMCovar)){
+        if(object@CPhi[1,CCov+ord,state]!=0){
+          KC <- object@y@Kcov[placeCCovar[ord]]
+          nbparC <- nbparC+KC*(object@y@K-1)-sum(object@CTCovar[[ord]][,,state]==0)+sum(rowSums(object@CTCovar[[ord]][,,state])==0)
+        }
+      }
+    }
+    
+    #Independant parameters in CPhi
+    nbparC <- nbparC+length(object@CPhi[1,,state])-1-sum(object@CPhi[1,,state]==0)
   }
-  nbPA+nbPPi+nbPRB
+  
+  Nbparam <- nbparpi+nbparA+nbparC
+  
+  Nbparam
 }
-
-# This part create the generic method and describe how a call to this generic
+# This part create the generic method and describe how a call to this generic 
 # has to be redirected to the rigth method, according to the considerd object.
 setGeneric(name="march.nbParams",def=function(object)march.model.nbParams(object))
 setMethod(f="march.nbParams",signature="march.Indep",definition=march.indep.nbParams)
@@ -210,27 +346,25 @@ setMethod(f="march.nbParams",signature="march.Dcmm",definition=march.dcmm.nbPara
 
 
 ###############################################################################
-# thompson allows to compute confidence intervals according to a given model,
-# using thompson's confidence interval method describe into: Thompson, S.K. (1987)
+# Thompson allows to compute confidence intervals according to a given model,
+# using thompson's confidence interval method describe into: Thompson, S.K. (1987) 
 # "Sample size for estimating multinomial proportions," American Statistician, 41, 42-46.
-# Adaptation to markov models is described into : TODO
+# Adaptation to markov models is described into : Berchtold, "Confidence Intervals for Markovian Models"
 ###############################################################################
 
 #' Thompson Confidence Intervals for a march.Model.
-#'
+#' 
 #' Compute the confidence intervals using Thompson's formula on a march.Model
 #' object. See Thompson SK (1987) Sample size for estimating multinomial proportions,
 #' American Statistician 41:42-46, for details.
-#'
-#'
+#' 
 #' @param object the march.Model object on which compute the confidence intervals.
 #' @param alpha the significance level among : 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.025, 0.02, 0.01, 0.005, 0.001, 0.0005, 0.0001.
-#'
-#' @return A list of half-length confidence intervals for each probability distribution of the considered model.
-#' @author Ogier Maitre
-#' @example tests/examples/march.thompson.example.R
 #' 
-#' @export
+#' @return A list of half-length confidence intervals for each probability distribution of the considered model.
+#' @author Ogier Maitre, Kevin Emery
+#' @example tests/examples/march.thompson.example.R
+#' @export 
 march.thompson <- function(object,alpha){}
 
 march.model.thompson <- function(object,alpha){
@@ -240,20 +374,20 @@ march.model.thompson <- function(object,alpha){
 march.mc.thompson <- function(object,alpha){
   d2n <- march.ci.h.d2n(alpha)
   d <- array(NA,object@y@K^object@order)
-
+  
   for( i in 1:length(d)){
     s <- sum(object@RT[i,])
     if( s>0 ){
       d[i]<-sqrt(d2n/s)
     }
-
+    
   }
   d
 }
 
 march.indep.thompson <- function(object,alpha){
   d2n <- march.ci.h.d2n(alpha)
-
+  
   sqrt(d2n/object@dsL)
 }
 
@@ -261,25 +395,47 @@ march.indep.thompson <- function(object,alpha){
 # TODO : Handle multi-sequences by computing the number of data
 #  	 influencing each distribution and summing this number.
 #
-march.mtd.thompson <- function( object, alpha){
+march.mtd.thompson <- function(object, alpha){
   d2n <- march.ci.h.d2n(alpha)
-
-  s <- 0
-  for( i in 1:object@order ){
-    s<-s+march.mtd.h.l(object,object@y,i)
+  
+  dphi <- d2n/object@dsL
+  
+  if(dim(object@Q)[1]>1){
+    is_mtdg <- TRUE
+  }else{
+    is_mtdg <- FALSE
   }
-
-  list(phi=sqrt(d2n/s),Q=sqrt(d2n/rowSums(march.mtd.h.n(object,object@y))))
+  l <- march.mtd.h.n(object,object@y,is_mtdg)
+  
+  dQ <- list()
+  if(is_mtdg==FALSE){
+    dQ[[1]] <- d2n/rowSums(l$nki_0)
+  }else{
+    for(ord in 1:object@order){
+      dQ[[ord]] <- d2n/rowSums(l$nki_0[ord,,])
+    }
+  }
+  
+  dS <- list()
+  if(sum(object@MCovar)>0){
+    placeCovar <- which(object@MCovar==1)
+    for(i in 1:sum(object@MCovar)){
+      dS[[i]] <- d2n/rowSums(l$numcov[i,1:object@y@Kcov[placeCovar[i]],])
+    }
+  }
+  list(phi=dphi,Q=dQ,S=dS)
 }
 
 march.dcmm.thompson <- function(object,alpha){
+  
+  stop("This part is not yet implemented")
+  # ys <- march.dataset.h.extractSequence(object@y,1)
+  # alpha<-march.dcmm.forward(object,ys)
+  # beta<-march.dcmm.backward(object,ys)
+  # 
+  # C
+} 
 
-  ys <- march.dataset.h.extractSequence(object@y,1)
-  alpha<-march.dcmm.forward(object,ys)
-  beta<-march.dcmm.backward(object,ys)
-
-  C
-}
 
 #This part create the generic method and describe how a call to this generic
 #has to be redirected to the rigth method, according to the considered object.
@@ -332,7 +488,7 @@ march.mtd.name <- function(object){
   else{
     sprintf("MTDg(%d)",object@order)
   }
-
+  
 }
 
 march.dcmm.name <- function(object){
@@ -384,7 +540,7 @@ march.summary <- function(object,...){
   rownames(v) <- march.name(object)
   colnames(v) <- c(gettext("ll"),gettext("param"),gettext("BIC"),gettext("AIC"))
   v[1,]<-c(object@ll,march.nbParams(object),march.BIC(object),march.AIC(object))
-
+  
   v
 }
 

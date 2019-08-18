@@ -5,16 +5,19 @@
 \title{Construct a Mixture Transition Distribution (MTD) model.}
 \usage{
 march.mtd.construct(y, order, maxOrder = order, mtdg = FALSE,
-  init = "best", deltaStop = 1e-04, llStop = 0.01, maxIter = 0)
+  MCovar = 0, init = "best", deltaStop = 1e-04, llStop = 0.01,
+  maxIter = 0)
 }
 \arguments{
-\item{y}{the dataset (\code{\link[=march.Dataset-class]{march.Dataset}}) from which to construct the model.}
+\item{y}{the dataset (\code{\link{march.Dataset-class}}) from which to construct the model.}
 
 \item{order}{the order of the constructed model.}
 
 \item{maxOrder}{the maximum visible order among the set of Markovian models to compare.}
 
 \item{mtdg}{flag indicating whether the constructed model should be a MTDg using a different transition matrix for each lag (value: \emph{TRUE} or \emph{FALSE}).}
+
+\item{MCovar}{vector of the size Ncov indicating which covariables are used (0: no, 1:yes)}
 
 \item{init}{the init method, to choose among \emph{best}, \emph{random} and \emph{weighted}.}
 
@@ -25,8 +28,8 @@ march.mtd.construct(y, order, maxOrder = order, mtdg = FALSE,
 \item{maxIter}{the maximal number of iterations of the optimisation algorithm (zero for no maximal number).}
 }
 \description{
-A Mixture Transition Distribution model (\code{\link[=march.Mtd-class]{march.Mtd}}) object of order \emph{order} is constructed
-according to a given \code{\link[=march.Dataset-class]{march.Dataset}} \emph{y}. The first \emph{maxOrder}-\emph{order}
+A Mixture Transition Distribution model (\code{\link{march.Mtd-class}}) object of order \emph{order} is constructed
+according to a given \code{\link{march.Dataset-class}} \emph{y}. The first \emph{maxOrder}-\emph{order}
 elements of each sequence are truncated in order to return a model
 which can be compared with other Markovian models of visible order maxOrder.
 }
@@ -40,10 +43,9 @@ model <- march.mtd.construct(pewee,3,mtdg=TRUE)
 print(model)
 
 }
-\author{
-Ogier Maitre
-}
 \seealso{
-\code{\link[=march.Mtd-class]{march.Mtd-class}}, \code{\link{march.Model-class}}, \code{\link[=march.Dataset-class]{march.Dataset-class}}.
+\code{\link{march.Mtd-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 }
-
+\author{
+Ogier Maitre, Kevin Emery
+}

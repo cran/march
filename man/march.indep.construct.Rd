@@ -7,7 +7,7 @@
 march.indep.construct(y, maxOrder = 0)
 }
 \arguments{
-\item{y}{the \code{\link[=march.Dataset-class]{Dataset for march package}} from which construct the model.}
+\item{y}{the \code{\link{march.Dataset-class}} from which construct the model.}
 
 \item{maxOrder}{the maximum visible order among the set of Markovian models to compare.}
 }
@@ -15,7 +15,7 @@ march.indep.construct(y, maxOrder = 0)
 The \code{\link{march.Indep-class}} constructed using dataset y and maxOrder.
 }
 \description{
-Construct a \code{\link[=march.Indep-class]{independence model}} from a given \code{\link[=march.Dataset-class]{march.Dataset}},
+Construct a \code{\link{march.Indep-class}} model from a given \code{\link{march.Dataset-class}},
 the first \emph{maxOrder} elements of each sequence being truncated in order to return a model
 which can be compared with other Markovian models of visible order maxOrder.
 }
@@ -24,10 +24,9 @@ which can be compared with other Markovian models of visible order maxOrder.
 model <- march.indep.construct(pewee)
 print(model)
 }
-\author{
-Ogier Maitre
-}
 \seealso{
 \code{\link{march.Indep-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 }
-
+\author{
+Ogier Maitre
+}

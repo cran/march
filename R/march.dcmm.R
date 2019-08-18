@@ -1,433 +1,13 @@
-#
-# Author: Ogier Maitre
-###############################################################################
-
-march.dcmm.constructEmptyDcmm <- function(M,y,orderVC,orderHC){
-  RB <- array(1/y@K,c(M,y@K^orderVC,y@K)) # emit
-  Pi <- array(1/M,c(orderHC,M^(orderHC-1),M))
-
-  RA <- array(1/M,c(M^orderHC,M))
-  A <- march.dcmm.h.expandRAInternal(RA,M,orderHC)
-
-  new("march.Dcmm",Pi=Pi,A=A,M=M,orderVC=orderVC,orderHC=orderHC,RB=RB,y=y)
-}
-
-
-march.dcmm.h.encodeOutput <- function(s,t,d){
-
-  if( d@orderVC>0 ){
-    code <- array(0,c(d@orderVC-1))
-    i <- march.h.seq(0,d@orderVC-1)
-    code = d@y@K^(i)*(s@y[i+(t-d@orderVC)]-1)
-    sum(code)+1
-  }
-  else{
-    1
-  }
-}
-
-march.dcmm.h.scaleAlpha <- function(j,alphat){
-  mA <- sum(alphat[1:j])/j
-  if( mA==0 ){
-    alphat[1:j] <- matrix(1,ncol=1,nrow=j)*(1/j)
-    l <- 1
-  }
-  else{
-    alphat[1:j] <- alphat[1:j]/mA
-    l <- mA
-  }
-  list(scaled=alphat,scale=l)
-}
-
-
-march.dcmm.h.expandRA <- function(d,RA){
-  march.dcmm.h.expandRAInternal(RA,d@M,d@orderHC)
-}
-
-march.dcmm.h.expandRAInternal <- function(RA,M,orderHC){
-  A <- array(0,c(M^orderHC,M^orderHC))
-
-  for( r2 in 1:M ){
-    for( r1 in march.h.seq(1,M^(orderHC-1)) ){
-      for( c in 1:M ){
-        A[(r1-1)*M+r2,r1+(c-1)*M^(orderHC-1)] <- RA[(r1-1)*M+r2,c]
-      }
-    }
-  }
-
-  A
-}
-
-march.dcmm.h.compactA <- function(d){
-  RA <- array(0,c(d@M^d@orderHC,d@M))
-
-  for( r2 in 1:d@M ){
-    for( r1 in 1:d@M^(d@orderHC-1) ){
-      for( c in 1:d@M ){
-        RA[(r1-1)*d@M+r2,c] <- d@A[(r1-1)*d@M+r2,r1+(c-1)*d@M^(d@orderHC-1)]
-      }
-    }
-  }
-
-  RA
-}
-
-
-#' Viterbi algorithm for a DCMM model.
-#'
-#' @param d The \code{\link[=march.Dcmm-class]{march.Dcmm-class}} on which to compute the most likely sequences of hidden states.
-#' @param y The \code{\link[=march.Dataset-class]{march.Dataset-class}} to consider.
-#'
-#' @return A list of vectors containing the most likely sequences of hidden states, considering the given model for each sequence of the given dataset.
-#' @author Ogier Maitre
-#' @example tests/examples/march.dcmm.viterbi.example.R
-#'
-#'@export
-march.dcmm.viterbi <- function(d,y){
-
-  l <- list()
-
-  for( n in 1:y@N ){
-    s <- march.dataset.h.extractSequence(y,n)
-    delta <- matrix(0,nrow=s@N,ncol=d@M^d@orderHC)
-
-    # intial step t=orderVC+1
-    t = d@orderVC+1
-    for( j0 in 1:d@M ){
-      delta[t,j0] <- d@Pi[1,1,j0]*d@RB[j0,march.dcmm.h.encodeOutput(s,t,d),s@y[t]]
-    }
-
-    delta[t,] <- march.dcmm.h.scaleAlpha(d@M,delta[t,])$scaled
-
-    if( d@orderHC>1 ){
-      # initial step to<=orderVC+orderHC
-      for( t in march.h.seq(d@orderVC+2,d@orderVC+d@orderHC)){
-        rowC <- march.dcmm.h.encodeOutput(s,t,d)
-        for( j in 1:(d@M^(t-d@orderVC)) ){
-          j0 = floor((j-1)/(d@M^(t-d@orderVC-1)))+1;
-          delta[t,j] <- max(delta[t-1,]*d@Pi[t-d@orderVC,,j0])*d@RB[j0,rowC,s@y[t]]
-        }
-        delta[t,] <- march.dcmm.h.scaleAlpha(d@M^(t-d@orderVC),delta[t,])$scaled
-      }
-    }
-
-    # Induction to t=length(y)
-    for( t in (d@orderVC+d@orderHC+1):s@N){ #
-      rowC <- march.dcmm.h.encodeOutput(s,t,d)
-      for( j in 1:(d@M^d@orderHC)){
-        j0 = floor((j-1)/(d@M^(d@orderHC-1)))+1;
-        delta[t,j] <- max(delta[t-1,]*d@A[,j])*d@RB[j0, rowC,s@y[t]]
-      }
-      delta[t,] <- march.dcmm.h.scaleAlpha(d@M^d@orderHC,delta[t,])$scaled
-    }
-
-
-    X <- vector(mode="integer",s@N)
-    e_t = which.max(delta[t,])
-    x_t = floor((e_t-1)/(d@M^(d@orderHC-1)))+1
-
-    X[s@N] <- x_t
-
-    # find the best sequence of hidden step
-    for( t in seq(s@N-1,d@orderVC+d@orderHC) ){
-      e_t <- which.max(delta[t,]*d@A[,e_t])
-      x_t <- floor((e_t-1)/(d@M^(d@orderHC-1)))+1
-      X[t] <- x_t
-    }
-
-    if (d@orderHC>1){
-      for( t in seq(d@orderHC+d@orderVC-1,d@orderVC+1)){
-        e_t <- which.max(delta[t,]*d@Pi[t-d@orderVC+1,x_t,])
-        X[t] <- floor((e_t-1)/(d@M^(d@orderHC-1)))+1
-      }
-    }
-
-    l[[n]] <- X
-  }
-  l
-}
-
-#
-# parameters :
-#	d : a Dcmm object (see Dcmm class)
-#	y : a vector containing variable sequence.
-#
-# return :
-#
-march.dcmm.forward <- function(d,s){
-  alpha <- matrix(0,nrow=s@N,ncol=d@M^d@orderHC)
-  l <- vector("numeric",s@N)
-
-  # intial step t=orderVC+1
-  t <- d@orderVC+1;
-  alpha[t,1:d@M] <- d@RB[,march.dcmm.h.encodeOutput(s,t,d),s@y[t]]*d@Pi[1,1,]
-
-  scaled <- march.dcmm.h.scaleAlpha(d@M,alpha[t,])
-  alpha[t,]<- scaled$scaled
-  l[t] <- log(scaled$scale)
-
-  if( d@orderHC>1 ){
-    # initial step to<=orderVC+orderHC
-    for( t in march.h.seq((d@orderVC+2),(d@orderVC+d@orderHC)) ){
-      rowC <- march.dcmm.h.encodeOutput(s,t,d)
-      for( i in march.h.seq(1,d@M^(t-d@orderVC-1)) ){
-        j<-1:d@M
-        j0 <- d@M^(t-d@orderVC-1)*(j-1)+i
-        alpha[t,j0] <- d@RB[j,rowC,s@y[t]]*d@Pi[t-d@orderVC,i,j]*alpha[t-1,i]
-      }
-      scaled <- march.dcmm.h.scaleAlpha(d@M^(t-d@orderVC),alpha[t,])
-      alpha[t,] <- scaled$scaled
-      l[t] <- log(scaled$scale)
-    }
-  }
-
-  # Induction to t=length(y)
-  for( t in march.h.seq(d@orderVC+d@orderHC+1,s@N) ){
-    rowC <- march.dcmm.h.encodeOutput(s,t,d)
-    for( j in 1:(d@M^d@orderHC)){
-      j0 = floor((j-1)/(d@M^(d@orderHC-1)))+1;
-      alpha[t,j] <- t(alpha[t-1,])%*%d@A[,j]*d@RB[j0, rowC,s@y[t]]
-    }
-    scaled <- march.dcmm.h.scaleAlpha(d@M^d@orderHC,alpha[t,])
-    alpha[t,]<- scaled$scaled
-    l[t] <- log(scaled$scale)
-  }
-
-  LL <- log(sum(matrix(1,ncol=1,nrow=d@M^d@orderHC)*alpha[s@N,]))+sum(l*matrix(1,nrow=length(s),ncol=1))
-  list(alpha=alpha,l=l,LL=LL)
-}
-
-
-
-march.dcmm.backward <- function(d,s){
-  beta <- matrix(0,nrow=s@N,ncol=d@M^d@orderHC)
-  l <- vector("numeric",s@N)
-
-  beta[s@N,] <- matrix(1,ncol=d@M^d@orderHC,nrow=1)
-
-
-  for( t in march.h.seq(s@N-1,d@orderVC+d@orderHC,-1)){
-    rowC <- march.dcmm.h.encodeOutput(s,t+1,d)
-    for( i in 1:(d@M^(d@orderHC))){
-      for( j in 1:d@M ){
-        col <- d@M^(d@orderHC-1)*(j-1)+floor((i-1)/d@M)+1
-        beta[t,i] <- beta[t,i]+d@A[i,col]*d@RB[j, rowC ,s@y[t+1]]*beta[t+1,col]
-      }
-    }
-    scaled <- march.dcmm.h.scaleAlpha(d@M^d@orderHC,beta[t,])
-    beta[t,] <- scaled$scaled
-    l[t] <- log(scaled$scale)
-  }
-
-  if( d@orderHC>1 ){
-    for( t in march.h.seq(d@orderVC+d@orderHC-1,d@orderVC+1,-1)){
-      rowC <- march.dcmm.h.encodeOutput(s,t+1,d)
-      for( i in 1:d@M^(t-d@orderVC)){
-        for( j in 1:d@M ){
-          col <- d@M^(t-d@orderVC)*(j-1)+i
-          beta[t,i] <- beta[t,i]+d@Pi[t-d@orderVC+1,i,j]*d@RB[j, rowC ,s@y[t+1]]*beta[t+1,col]
-        }
-      }
-      scaled <- march.dcmm.h.scaleAlpha(d@M^(t-d@orderVC),beta[t,])
-      beta[t,] <- scaled$scaled
-      l[t] <- log(scaled$scale)
-    }
-  }
-
-  list(beta=beta,l=l)
-}
-
-
-march.dcmm.epsilon <- function(d,s,alpha,beta,SAlog,SBlog,LLAlpha){
-  epsilon <- array(0,c(s@N-1,d@M^d@orderHC,d@M))
-  zepsilon <- array(1,c(s@N-1,d@M^d@orderHC,d@M))
-
-  for( t in march.h.seq(d@orderVC+1,d@orderVC+d@orderHC-1)){
-    rowC <-  march.dcmm.h.encodeOutput(s,t+1,d)
-    for( i in 1:d@M^(t-d@orderVC)){
-      j <- 1:d@M
-      col <- d@M^(t-d@orderVC)*(j-1)+i
-      zepsilon[t,i,j] <- alpha[t,i] & beta[t+1,col] & d@Pi[t-d@orderVC+1,i,j] & d@RB[j, rowC,s@y[t+1]]
-    }
-  }
-
-  for( t in march.h.seq(d@orderHC+d@orderVC,s@N-1)){
-    rowC <- march.dcmm.h.encodeOutput(s,t+1,d)
-    for( i in 1:d@M^d@orderHC ){
-      j<-1:d@M
-      col <- d@M^(d@orderHC-1)*(j-1)+floor((i-1)/d@M)+1
-      zepsilon[t,i,j] <- alpha[t,i] & beta[t+1,col] & d@A[i,col] & d@RB[j, rowC,s@y[t+1]]
-    }
-  }
-
-  LSAfact <- 0
-  for( t in march.h.seq(d@orderVC+1,d@orderVC+d@orderHC-1)){
-    rowC <- march.dcmm.h.encodeOutput(s,t+1,d)
-    LSAfact = LSAfact+SAlog[t]
-    for( i in 1:d@M^(t-d@orderVC)){
-      for( j in 1:d@M ){
-        if( zepsilon[t,i,j] ){
-          epsilon[t,i,j] <- LSAfact+log(alpha[t,i])+log(d@Pi[t-d@orderVC+1,i,j])+log(d@RB[j,rowC,s@y[t+1]])
-        }
-      }
-    }
-  }
-
-  for( t in march.h.seq(d@orderHC+d@orderVC,s@N-1)){
-    rowC <- march.dcmm.h.encodeOutput(s,t+1,d)
-    LSAfact = LSAfact+SAlog[t]
-
-    for( i in 1:(d@M^d@orderHC) ){
-      for( j in 1:d@M ){
-        col <- d@M^(d@orderHC-1)*(j-1)+floor((i-1)/d@M)+1
-        if( zepsilon[t,i,j] ){
-          epsilon[t,i,j] <- LSAfact+log(alpha[t,i])+log(d@A[i,col])+log(d@RB[j,rowC,s@y[t+1]])
-        }
-      }
-    }
-  }
-
-  LSBfact <- 0
-  for( t in march.h.seq(s@N-1,d@orderHC+d@orderVC,-1)){
-    LSBfact <- LSBfact+SBlog[t+1]
-    for( i in 1:d@M^d@orderHC ){
-      for( j in 1:d@M ){
-        if( zepsilon[t,i,j] ){
-          col <- d@M^(d@orderHC-1)*(j-1)+floor((i-1)/d@M)+1
-          epsilon[t,i,j] <- exp(epsilon[t,i,j] + LSBfact+log(beta[t+1,col])-LLAlpha)
-        }
-      }
-    }
-  }
-
-  if( d@orderHC> 1){
-    for( t in march.h.seq(d@orderHC+d@orderVC-1,d@orderVC+1,-1)){
-      LSBfact <- LSBfact+SBlog[t+1]
-      for( i in 1:d@M^(t-d@orderVC) ){
-        for( j in 1:d@M ){
-          if( zepsilon[t,i,j] ){
-            col <- d@M^(t-d@orderVC)*(j-1)+i
-            epsilon[t,i,j] <- exp(epsilon[t,i,j]+LSBfact+log(beta[t+1,col])-LLAlpha)
-          }
-        }
-      }
-    }
-  }
-
-  epsilon
-}
-
-march.dcmm.gamma <- function(d,s,alpha,beta,SAlog,SBlog,LL,epsilon){
-  gamma <- array(0,c(s@N,d@M^d@orderHC))
-
-  for( t in march.h.seq(d@orderVC+1,d@orderVC+d@orderHC-1)){
-    for( i in 1:d@M^(t-d@orderVC)){
-      gamma[t,i] <- sum(epsilon[t,i,])
-    }
-  }
-
-  for( t in march.h.seq(d@orderVC+d@orderHC,s@N-1)){
-    for( i in 1:d@M^d@orderHC){
-      gamma[t,i] <- sum(epsilon[t,i,])
-    }
-  }
-
-  t <- s@N
-  for( i in 1:d@M^d@orderHC){
-    gamma[t,i] <- exp(log(alpha[t,i])+sum(SAlog)+SBlog[t]-LL)
-  }
-  gamma
-}
-
-#
-# Baum-Welch algorithm applied to Dcmm
-#
-march.dcmm.bw <- function(d,y){
-
-  RA <- array(0,c(d@M^d@orderHC,d@M))
-  RB <- array(0,c(d@M,d@y@K^d@orderVC,d@y@K))
-  Pi <- array(0,c(d@orderHC,d@M^(d@orderHC-1),d@M))
-
-  for( n in 1:y@N ){
-    # extract the current sequence
-    s <- march.dataset.h.extractSequence(y,n)
-
-    # First compute all the needed data, depending on d and y
-    a <- march.dcmm.forward(d,s)
-    b <- march.dcmm.backward(d,s)
-    epsilon <- march.dcmm.epsilon(d,s,a$alpha,b$beta,a$l,b$l,a$LL)
-    gamma <- march.dcmm.gamma(d,s,a$alpha,b$beta,a$l,b$l,a$LL,epsilon)
-
-    # Reestimation of the RA
-    #print(RA)
-    for( t in march.h.seq(d@orderVC+d@orderHC,s@N-1)){
-      RA <- RA+epsilon[t,,]
-    }
-
-    tot <- rowSums(RA)
-    #print(d)
-    for( i in 1:d@M^d@orderHC ){
-      if( tot[i]>0 ){
-        RA[i,] <- RA[i,]/tot[i]
-      }
-    }
-
-
-    # Reestimation of RB
-    for( t in march.h.seq((d@orderVC+1),(d@orderHC+d@orderVC-1))){
-      rowC <- march.dcmm.h.encodeOutput(s,t,d)
-      for( m in 1:d@M){
-        RB[m,rowC,s@y[t]] <- RB[m,rowC,s@y[t]]+sum(gamma[t,((m-1)*d@M^(t-d@orderVC)+1):(m*d@M^(t-d@orderVC))])
-      }
-    }
-
-    for( t in (d@orderHC+d@orderVC):s@N){
-      rowC <- march.dcmm.h.encodeOutput(s,t,d)
-      for( m in 1:d@M){
-        RB[m,rowC,s@y[t]] <- RB[m,rowC,s@y[t]]+sum(gamma[t,((m-1)*d@M^(d@orderHC-1)+1):(m*d@M^(d@orderHC-1))])
-      }
-    }
-
-    for( m in 1:d@M ){
-      tot <- RB[m,,]%*%march.h.ones(d@y@K,1)
-
-      for( j in 1:(d@y@K^d@orderVC )){
-        if( tot[j] ){
-          RB[m,j,] <- RB[m,j,]/tot[j]
-        }
-      }
-    }
-
-    # Reestimation of Pi
-    Pi[1,1,] <- Pi[1,1,]+gamma[d@orderVC+1,1:d@M]
-
-    for( t in march.h.seq(2,d@orderHC) ){
-      for( i in 1:(d@M^(t-1))){
-        if( gamma[d@orderVC+t-1,i]>0 )
-          Pi[t,i,] <- Pi[t,i,]+epsilon[d@orderVC+t-1,i,]/gamma[d@orderVC+t-1,i]
-      }
-    }
-  }
-  Pi <- Pi/y@N
-
-  # Expansion of RA into A
-  A <- march.dcmm.h.expandRA(d,RA)
-
-
-  # finally return a new Dcmm with the reestimated probability distributions
-  new("march.Dcmm",Pi=Pi,A=A,M=d@M,y=d@y,orderVC=d@orderVC,orderHC=d@orderHC,RB=RB)
-}
-
 #' Construct a double chain Markov model (DCMM).
 #'
-#' Construct a \code{\link[=march.Dcmm-class]{march.Dcmm}} object, with visible order \emph{orderVC}, hidden order \emph{orderHC} and \emph{M} hidden states, according to a \code{\link[=march.Dataset-class]{march.Dataset}}.
+#' Construct a \code{\link{march.Dcmm-class}} object, with visible order \emph{orderVC}, hidden order \emph{orderHC} and \emph{M} hidden states, according to a \code{\link{march.Dataset-class}}.
 #' The first \emph{maxOrder}-\emph{orderVC} elements of each sequence are truncated in order to return a model
 #' which can be compared with other Markovian model of visible order maxOrder. The construction is performed either by an evolutionary algorithm (EA) or by improving an existing DCMM.
 #' The EA performs \emph{gen} generations on a population of \emph{popSize} individuals. The EA behaves as a Lamarckian evolutionary algorithm, using a Baum-Welch algorithm as
 #' optimization step, running until log-likelihood improvement is less than \emph{stopBw} or for \emph{iterBw} iterations. Finally only the best individual from the population is returned as solution.
 #' If a seedModel is provided, the only step executed is the optimization step, parameters related to the EA does not apply in this case.
 #'
-#' @param y the dataset from which the Dcmm will be constructed \code{\link[=march.Dataset-class]{march.Dataset}}.
+#' @param y the dataset from which the Dcmm will be constructed \code{\link{march.Dataset-class}}.
 #' @param orderHC the order of the hidden chain of the constructed Dcmm.
 #' @param orderVC the order of the visible chain of the constructed Dcmm (0 for a HMM).
 #' @param M the number of hidden state of the Dcmm.
@@ -437,79 +17,541 @@ march.dcmm.bw <- function(d,y){
 #' @param seedModel a model to optimize using Baum-Welch algorithm.
 #' @param iterBw the number of iteration performed by the Baum-Welch algorithm.
 #' @param stopBw the minimum increase in quality (log-likelihood) authorized in the Baum-Welch algorithm.
+#' @param Amodel the modeling of the hidden transition matrix (mtd, mtdg or complete)
+#' @param Cmodel the modeling of the visible transition matrix (mtd, mtdg or complete)
+#' @param AMCovar vector of the size Ncov indicating which covariables are used into the hidden process (0: no, 1:yes)
+#' @param CMCovar vector of the size Ncov indicating which covariables are used into the visible process (0: no, 1:yes)
+#' @param AConst logical, indicating whether or not the hidden transition matrix is diagonal constraint
+#' @param pMut mutation probability for the evolutionary algorithm
+#' @param pCross crossover probability for the evolutionary algorithm
 #'
-#' @return the best \code{\link[=march.Dcmm-class]{march.Dcmm}} constructed by the EA or the result of the Baum-Welch algorithm on \emph{seedModel}.
+#' @return the best \code{\link{march.Dcmm-class}} constructed by the EA or the result of the Baum-Welch algorithm on \emph{seedModel}.
 #'
-#' @author Ogier Maitre
+#' @author Emery Kevin
 #' @example tests/examples/march.dcmm.construct.example.R
-#' @seealso \code{\link[=march.Dcmm-class]{march.Dcmm-class}}, \code{\link{march.Model-class}}, \code{\link[=march.Dataset-class]{march.Dataset-class}}.
+#' @seealso \code{\link{march.Dcmm-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 #'
 #' @export
-march.dcmm.construct <- function(y,orderHC,orderVC,M,gen=5,popSize=4,maxOrder=orderVC,seedModel=NULL,iterBw=2,stopBw=0.1){
-
-  if( is.null(seedModel) ){
-    orderHC <- march.h.paramAsInteger(orderHC)
-    orderVC <- march.h.paramAsInteger(orderVC)
-    M <- march.h.paramAsInteger(M)
-    maxOrder <- march.h.paramAsInteger(maxOrder)
-
-    if( orderVC>maxOrder ){
-      stop("maxOrder should be greater or equal than orderVC")
-    }
-
+march.dcmm.construct <- function(y,orderHC,orderVC,M=2,gen=5,popSize=4,maxOrder=orderVC,seedModel=NULL,iterBw=2,stopBw=0.1,Amodel="mtd",Cmodel="mtd",AMCovar=0,CMCovar=0, AConst=FALSE, pMut=0.05, pCross=0.5){
+	
+  if(is.logical(AConst)==FALSE){
+    stop("AConst should be a logical")
   }
+  
+  if( is.null(seedModel) ){
+    if(Amodel!="complete" & Amodel!="mtd" & Amodel!="mtdg"){
+		  stop("Amodel should be equal to complete, mtd or mtdg")
+	  }
+	
+	  if(Cmodel!="complete" & Cmodel!="mtd" & Cmodel!="mtdg"){
+		  stop("Cmodel should be equal to complete mtd or mtdg")
+	  }
+	
+	  if(length(AMCovar)!=y@Ncov & length(AMCovar)>1){
+		  stop("AMCovar should have his length equal to the number of covariates in y")
+	  }
+	
+	  if(length(CMCovar)!=y@Ncov & length(CMCovar)>1){
+		  stop("CMCovar should have his length equal to the number of covariates in y")
+	  }	
+	
+    if(AConst==TRUE & (Amodel=="mtd" | Amodel=="mtdg"|sum(AMCovar)>0)){
+      stop("When the hidden transition matrix is constraint to the identity matrix, no mtd modeling can be used, nor covariates and the hidden order must be one")
+    }
+	
+	  #Checking
+	  if(M==1){
+		  AMCovar <- rep(0,max(1,y@Ncov))
+		  Amodel <- "complete"
+		  orderHC <- 1
+	  }
+	
+	  if(orderVC==0){
+		  Cmodel <- "complete"
+	  }
+	
+	  if(orderHC==0){
+	  	stop("orderHC should be greater than 0")
+		  #Amodel <- "complete"
+	  }
+	
+	  if(orderHC==1 & Amodel=="mtdg"){
+		  Amodel <- "mtd"
+	  }
+	
+	  if(orderVC==1 & Cmodel=="mtdg"){
+		  Cmodel <- "mtd"
+	  }
+		
 
-
+		orderHC <- march.h.paramAsInteger(orderHC)
+		orderVC <- march.h.paramAsInteger(orderVC)
+		M <- march.h.paramAsInteger(M)
+		maxOrder <- march.h.paramAsInteger(maxOrder)
+    
+    if( orderVC>maxOrder ){
+      	stop("maxOrder should be greater or equal than orderVC")
+    }
+  }
+  
+  
   iterBw <- march.h.paramAsInteger(iterBw)
-
-
+  
+  
   gen <- march.h.paramAsInteger(gen)
   popSize <- march.h.paramAsInteger(popSize)
-
-  #
+  
   if( is.null(seedModel) ){
     y <- march.dataset.h.filtrateShortSeq(y,maxOrder+1)
     y <- march.dataset.h.cut(y,maxOrder-orderVC)
   }
-
+  
   if( is.null(seedModel)==FALSE ){
-
-    # AB
-    y <- march.dataset.h.filtrateShortSeq(y,maxOrder+1)
-    y <- march.dataset.h.cut(y,maxOrder-orderVC)
-    # \AB
-
-    op <- new("march.dcmm.ea.OptimizingParameters",fct=march.dcmm.ea.optimizing,ds=y,stopBw=stopBw,iterBw=iterBw)
-    m <- march.dcmm.ea.optimizing(seedModel,op)
-
-    # AB
-    m@dsL <- sum(y@T-orderVC)
-    #m@dsL <- sum(y@T)
-    # \AB
-
-    m@y <- y
-    #m@ll <- march.dcmm.forward(m,march.dataset.h.extractSequence(y,1))$LL
-    m@ll <- march.dcmm.h.computeLL(m,y)
-    m
-  }
-  else{
-    ep <- new("march.dcmm.ea.EvalParameters",ds=y,fct=march.dcmm.ea.evaluation)
-    ip <- new("march.dcmm.ea.InitParameters",AConst=FALSE,y=y,orderVC=orderVC,orderHC=orderHC,M=M,fct=march.dcmm.ea.initialization)
-    mp <- new("march.dcmm.ea.MutationParameters",pMut=as.numeric(0.05),fct=march.dcmm.ea.mutation)
-    cp <- new("march.ea.CrossoverParameters",fct=march.dcmm.ea.crossover)
-
-    op <- new("march.dcmm.ea.OptimizingParameters",fct=march.dcmm.ea.optimizing,ds=y,stopBw=stopBw,iterBw=iterBw)
-    p <- new("march.ea.Parameters",optimizing=TRUE,
+  	y <- march.dataset.h.filtrateShortSeq(y,maxOrder+1)
+    y <- march.dataset.h.cut(y,maxOrder-seedModel@orderVC)
+  	op <- new("march.dcmm.cov.ea.OptimizingParameters",fct=march.dcmm.cov.ea.optimizing,ds=y,stopBw=stopBw,iterBw=iterBw)
+  	m <- march.dcmm.cov.ea.optimizing(seedModel,op)
+  	
+  	m@dsL <- sum(y@T-orderVC)
+  	m@y <- y
+  	m@ll <- march.dcmm.h.cov.computeLL(m,y)
+  	m
+  }else{
+    ep <- new("march.dcmm.cov.ea.EvalParameters", ds=y, fct=march.dcmm.cov.ea.evaluation)
+    ip <- new("march.dcmm.cov.ea.InitParameters",AConst=AConst,y=y,orderVC=orderVC,orderHC=orderHC,M=M,Amodel=Amodel,Cmodel=Cmodel,AMCovar=AMCovar,CMCovar=CMCovar,fct=march.dcmm.cov.ea.initialization)
+    mp <- new("march.dcmm.cov.ea.MutationParameters",pMut=pMut,AConst=AConst,fct=march.dcmm.cov.ea.mutation)
+    cp <- new("march.ea.cov.CrossoverParameters",fct=march.dcmm.cov.ea.crossover)
+    
+    op <- new("march.dcmm.cov.ea.OptimizingParameters",fct=march.dcmm.cov.ea.optimizing,ds=y,stopBw=stopBw,iterBw=iterBw)
+    p <- new("march.ea.cov.Parameters",optimizing=TRUE,
              initParameters=ip,evalParameters=ep,mutationParameters = mp, optimizingParameters=op,crossoverParameters=cp,
-             populationSize=popSize,crossoverProb=0.5,generation=gen)
-    res<-march.loop(p)
-
-    # AB
+             populationSize=popSize,crossoverProb=pCross,generation=gen)
+    res <- march.loop.cov(p)
+    
     res$best@dsL <- sum(y@T-orderVC)
-    #res$best@dsL <- sum(y@T)
-    # \AB
     res$best@y <- y
-    res$best@ll <-march.dcmm.h.computeLL(res$best,y)
+    
+    res$best@ll <- march.dcmm.h.cov.computeLL(res$best,y)
     res$best
+    
   }
+}
+
+
+march.dcmm.cov.constructEmptyDcmm <- function(M,y,orderVC,orderHC,AMCovar,CMCovar,Amodel,Cmodel){
+  
+	KCovar <- y@Kcov
+  	K <- y@K
+  	NbAMCovar <- sum(AMCovar)
+  	NbCMCovar <- sum(CMCovar)
+  	placeACovar <- which(AMCovar==1)
+   	placeCCovar <- which(CMCovar==1)
+  
+  	AtmCovar <- 1
+  	if(NbAMCovar>0){
+  		for (i in 1:NbAMCovar){
+      		AtmCovar <- AtmCovar*KCovar[placeACovar[i]]
+      	}
+  	}
+  
+	  CtmCovar <- 1
+  	if(NbCMCovar>0){
+  		for (i in 1:NbCMCovar){
+      		CtmCovar <- CtmCovar*KCovar[placeCCovar[i]]
+    	}
+  	}
+ 	
+ 	if(orderHC==0){
+ 		  Pi <- array(0,c(AtmCovar,M,1))
+ 	}else{
+  		Pi <- array(0,c(M^(orderHC-1)*AtmCovar,M,orderHC))
+ 	}
+  	
+  	if(Amodel=="complete"){
+    	AQ <- array(0,c(1,M^max(orderHC,1),M))
+  	}else if(Amodel=="mtd"){
+    	AQ <- array(0,c(1,M,M))
+  	}else{
+    	AQ <- array(0,c(orderHC,M,M))
+  	}
+  
+ 	if(Cmodel=="complete"){
+    	CQ <- array(0,c(1,K^orderVC,K,M))
+  	}else if(Cmodel=="mtd"){
+    	CQ <- array(0,c(1,K,K,M))
+  	}else{
+    	CQ <- array(0,c(orderVC,K,K,M))
+  	}
+  
+  	ATCovar <- list()
+  	CTCovar <- list()
+  
+  	if(NbAMCovar>0){
+  		for(i in 1:NbAMCovar){
+  			ATCovar[[i]] <- array(0,c(KCovar[placeACovar[i]],M))
+  		}
+  	}
+  
+  	if(NbCMCovar>0){
+  		for(i in 1:NbCMCovar){
+  			CTCovar[[i]] <- array(0,c(KCovar[placeCCovar[i]],K,M))
+  		}
+  	}
+  
+  	if(Amodel=="complete"){
+    	APhi <- array(1,c(1,1+NbAMCovar))
+  	}else{
+    	APhi <- array(1,c(1,orderHC+NbAMCovar))
+  	}
+  	if(Cmodel=="complete"){
+      	CPhi <- array(1,c(1,1+NbCMCovar,M))
+  	}else{
+    	CPhi <- array(1,c(1,orderVC+NbCMCovar,M))
+  	}
+  
+  	if(Amodel=="complete"){
+  		AProbT <- array(0,c(M^(max(orderHC,1)+1)*AtmCovar,1+NbAMCovar))
+  	}else{
+  		AProbT <- array(0,c(M^(max(orderHC,1)+1)*AtmCovar,orderHC+NbAMCovar))
+  	}
+  
+  	if(Cmodel=="complete"){
+  		CProbT <- array(0,c(K^(orderVC+1)*CtmCovar,1+NbCMCovar,M))
+  	}else{
+  		CProbT <- array(0,c(K^(orderVC+1)*CtmCovar,orderVC+NbCMCovar,M))
+  	}
+  
+  	A <- array(1,c(M^orderHC*AtmCovar,M^orderHC))
+  	RB <- array(1,c(K^orderVC*CtmCovar,K,M))
+  
+  
+	new("march.Dcmm",Pi=Pi,A=A,M=M,orderVC=orderVC,orderHC=orderHC,RB=RB,y=y,APhi=APhi,CPhi=CPhi,ATCovar=ATCovar,CTCovar=CTCovar,AMCovar=AMCovar,CMCovar=CMCovar,
+  AQ=AQ, CQ=CQ, Amodel=Amodel,Cmodel=Cmodel,AProbT=AProbT,CProbT=CProbT)
+}
+
+
+march.dcmm.cov.h.compactA <- function(d){
+	
+	NbAMCovar <- sum(d@AMCovar)  
+  	placeACovar <- which(d@AMCovar==1)
+   
+   	AtmCovar <- 1
+  	if(NbAMCovar>0){
+  		for (i in 1:NbAMCovar){
+      		AtmCovar <- AtmCovar*d@y@Kcov[placeACovar[i]]
+      	}
+  	}
+
+	
+  	RA <- array(0,c(d@M^d@orderHC*AtmCovar,d@M))
+  
+	if(d@orderHC==0){
+		RA <- d@A
+	}else{
+  		for( r2 in 1:(d@M*AtmCovar )){
+    		for( r1 in 1:d@M^(d@orderHC-1) ){
+      			for( c in 1:d@M ){
+        			RA[(r1-1)*(d@M*AtmCovar)+r2,c] <- d@A[(r1-1)*(d@M*AtmCovar)+r2,r1+(c-1)*d@M^(d@orderHC-1)]
+        		}
+      		}
+    	}
+  	}
+  
+  	RA
+}
+
+march.dcmm.cov.h.expandRA <- function(d,RA){
+    NbAMCovar <- sum(d@AMCovar)  
+   	placeACovar <- which(d@AMCovar==1)
+   
+   	AtmCovar <- 1
+   	if(NbAMCovar>0){
+   		for (i in 1:NbAMCovar){
+      		AtmCovar <- AtmCovar*d@y@Kcov[placeACovar[i]]
+      	}
+  	}
+
+  	A <- array(0,c(d@M^d@orderHC*AtmCovar,d@M^d@orderHC))
+  	offset <- 0
+   	for(r1 in 1:(d@M^(d@orderHC-1))){
+   		for(r2 in 1:d@M){
+   			for(off in 1:AtmCovar){
+   				offset <- offset+1
+   				for(c in 1:d@M){
+   					A[offset,r1+(c-1)*d@M^(d@orderHC-1)] <- RA[offset,c]
+   				}
+   			}
+   		}
+   	}
+   	A
+
+}
+
+#' Viterbi algorithm for a DCMM model.
+#'
+#' @param d The \code{\link[=march.Dcmm-class]{march.Dcmm-class}} on which to compute the most likely sequences of hidden states.
+#'
+#' @return A list of vectors containing the most likely sequences of hidden states, considering the given model for each sequence of the given dataset.
+#' @author Kevin Emery
+#' @example tests/examples/march.dcmm.viterbi.example.R
+#'
+#'@export
+march.dcmm.viterbi <- function(d){
+  
+  placeACovar <- which(d@AMCovar==1)
+  placeCCovar <- which(d@CMCovar==1)
+  NbAMCovar <- sum(d@AMCovar)
+  NbCMCovar <- sum(d@CMCovar)
+  
+  AtmCovar <- 1
+  if(NbAMCovar>0){
+    for (i in 1:NbAMCovar){
+      AtmCovar <- AtmCovar*d@y@Kcov[placeACovar[i]]
+    }
+  }
+  
+  
+  CtmCovar <- 1
+  if(NbCMCovar>0){
+    for (i in 1:NbCMCovar){
+      CtmCovar <- CtmCovar*d@y@Kcov[placeCCovar[i]]
+    }
+  }
+  
+  l <- list()
+  
+  for(n in 1:d@y@N){
+    
+    #Initialization
+    s <- march.dataset.h.extractSequence(d@y,n)
+    delta <- matrix(0,d@M^d@orderHC,s@N)
+    avdel <- rep(0,s@N)
+    X <- rep(0,s@N)
+    
+    t <- d@orderVC+1
+    
+    pos <- s@y[(t-d@orderVC):(t-1)]
+    rowC <- 1
+    for(r in march.h.seq(1,d@orderVC)){
+      rowC <- rowC+d@y@K^(r-1)*(pos[r]-1)
+    }
+    
+    rowCovar <- 1
+    if(AtmCovar>1){
+      r <- 0
+      tKC <- 1
+      for(i in d@y@Ncov:1){
+        if(d@AMCovar[i]>0){
+          r <- r+1
+          rowCovar <- rowCovar+tKC*(d@y@cov[n,t,i]-1)
+          tKC <- tKC*d@y@Kcov[i]
+        }
+      }
+    }
+    
+    rowCovarC <- 1
+    if(CtmCovar>1){
+      r <- 0
+      tKC <- 1
+      for(i in d@y@Ncov:1){
+        if(d@CMCovar[i]>0){
+          r <- r+1
+          rowCovarC <- rowCovarC +tKC*(d@y@cov[n,t,i]-1)
+          tKC <- tKC*d@y@Kcov[i]
+        }
+      }
+    }
+    
+    for(i in 1:d@M){
+      delta[i,t] <- d@Pi[rowCovar,i,1]*d@RB[(rowC-1)*CtmCovar+rowCovarC,s@y[t],i]
+    }
+    
+    avdel[t] <- sum(delta[1:d@M,t])/d@M
+    
+    if(avdel[t]==0){
+      delta[1:d@M,t] <- rep(1,d@M)/d@M
+    }else{
+      delta[1:d@M,t] <- delta[1:d@M,t]/avdel[t]
+    }
+    
+    #Induction
+    
+    #t=orderVC+2,...,orderVC+orderHC
+    
+    if(d@orderHC>1){
+      for(t in (d@orderVC+2):(d@orderVC+d@orderHC)){
+        
+        pos <- s@y[(t-d@orderVC):(t-1)]
+        rowC <- 1
+        for(r in march.h.seq(1,d@orderVC)){
+          rowC <- rowC+d@y@K^(r-1)*(pos[r]-1)
+        }
+        
+        rowCovar <- 1
+        if(AtmCovar>1){
+          r <- 0
+          tKC <- 1
+          for(i in d@y@Ncov:1){
+            if(d@AMCovar[i]>0){
+              r <- r+1
+              rowCovar <- rowCovar+tKC*(d@y@cov[n,t,i]-1)
+              tKC <- tKC*d@y@Kcov[i]
+            }
+          }
+        }
+        
+        rowCovarC <- 1
+        if(CtmCovar>1){
+          r <- 0
+          tKC <- 1
+          for(i in d@y@Ncov:1){
+            if(d@CMCovar[i]>0){
+              r <- r+1
+              rowCovarC <- rowCovarC +tKC*(d@y@cov[n,t,i]-1)
+              tKC <- tKC*d@y@Kcov[i]
+            }
+          }
+        }
+        
+        for(j in 1:d@M^(t-d@orderVC)){
+          j0 <- floor((j-1)/(d@M^(t-d@orderVC-1)))+1
+          
+          calc <- rep(0,d@M^(t-d@orderVC-1))
+          for(k in 1:d@M^(t-d@orderVC-1)){
+            calc[k] <- delta[k,t-1]*d@Pi[(k-1)*AtmCovar+rowCovar,j0,t-d@orderVC]
+          }
+          calc2 <- max(calc)
+          
+          delta[j,t] <- d@RB[(rowC-1)*CtmCovar+rowCovarC,s@y[t],j0]*calc2
+        }
+        avdel[t] <- sum(delta[1:d@M^(t-d@orderVC)],t)/(d@M^(t-d@orderVC))
+        
+        if(avdel[t]==0){
+          delta[1:d@M^(t-d@orderVC),t] <- rep(1,d@M^(t-d@orderVC))/(d@M^(t-d@orderVC))
+        }else{
+          delta[1:d@M^(t-d@orderVC),t] <- delta[1:d@M^(t-d@orderVC),t]/avdel[t]
+        }
+      }
+    }
+    
+    #t=orderVC+orderHC+1,...,s@N
+    
+    for(t in march.h.seq(d@orderVC+d@orderHC+1,s@N)){
+      
+      pos <- s@y[(t-d@orderVC):(t-1)]
+      rowC <- 1
+      for(r in march.h.seq(1,d@orderVC)){
+        rowC <- rowC+d@y@K^(r-1)*(pos[r]-1)
+      }
+      
+      rowCovar <- 1
+      if(AtmCovar>1){
+        r <- 0
+        tKC <- 1
+        for(i in d@y@Ncov:1){
+          if(d@AMCovar[i]>0){
+            r <- r+1
+            rowCovar <- rowCovar+tKC*(d@y@cov[n,t,i]-1)
+            tKC <- tKC*d@y@Kcov[i]
+          }
+        }
+      }
+      
+      rowCovarC <- 1
+      if(CtmCovar>1){
+        r <- 0
+        tKC <- 1
+        for(i in d@y@Ncov:1){
+          if(d@CMCovar[i]>0){
+            r <- r+1
+            rowCovarC <- rowCovarC +tKC*(d@y@cov[n,t,i]-1)
+            tKC <- tKC*d@y@Kcov[i]
+          }
+        }
+      }
+      
+      for(j in 1:d@M^d@orderHC){
+        j0 <- floor((j-1)/(d@M^(d@orderHC-1)))+1
+        
+        calc <- rep(0,d@M^d@orderHC)
+        for(k in 1:d@M^d@orderHC){
+          calc[k] <- delta[k,t-1]*d@A[(k-1)*AtmCovar+rowCovar,j]
+        }
+        calc2 <- max(calc)
+        
+        delta[j,t] <- d@RB[(rowC-1)*CtmCovar+rowCovarC,s@y[t],j0]*calc2
+      }
+      avdel[t] <- sum(delta[,t])/(d@M^d@orderHC)
+      
+      if(avdel[t]==0){
+        delta[,t] <- rep(1,d@M^d@orderHC)/(d@M^d@orderHC)
+      }else{
+        delta[,t] <- delta[,t]/avdel[t]
+      }
+    }
+    
+    #Sequence of hidden states
+    
+    calc4 <- max(delta[,s@N])
+    calc5 <- which(calc4==delta[,s@N])
+    calc6 <- calc5[1]
+    calc7 <- floor((calc6-1)/(d@M^(d@orderHC-1)))+1
+    X[s@N] <- calc7
+    
+    for(t in march.h.seq(s@N-1,d@orderHC+d@orderVC,-1)){
+      
+      rowCovar <- 1
+      if(AtmCovar>1){
+        r <- 0
+        tKC <- 1
+        for(i in d@y@Ncov:1){
+          if(d@AMCovar[i]>0){
+            r <- r+1
+            rowCovar <- rowCovar+tKC*(d@y@cov[n,t,i]-1)
+            tKC <- tKC*d@y@Kcov[i]
+          }
+        }
+      }
+      
+      calc <- rep(0,d@M^d@orderHC)
+      for(k in 1:d@M^d@orderHC){
+        calc[k] <- delta[k,t]*d@A[(k-1)*AtmCovar+rowCovar,calc6]
+      }
+      
+      calc4 <- max(calc)
+      calc5 <- which(calc==calc4)
+      calc6 <- calc5[1]
+      calc7 <- floor((calc6-1)/(d@M^(d@orderHC-1)))+1
+      X[t] <- calc7
+    }
+    
+    for(t in march.h.seq(d@orderVC+d@orderHC-1,d@orderVC+1,-1)){
+      
+      rowCovar <- 1
+      if(AtmCovar>1){
+        r <- 0
+        tKC <- 1
+        for(i in d@y@Ncov:1){
+          if(d@AMCovar[i]>0){
+            r <- r+1
+            rowCovar <- rowCovar+tKC*(d@y@cov[n,t,i]-1)
+            tKC <- tKC*d@y@Kcov[i]
+          }
+        }
+      }
+      
+      calc <- rep(0,d@M^(t-d@orderVC))
+      for(k in 1:d@M^(t-d@orderVC)){
+        calc[k] <- delta[k,t]*d@Pi[(k-1)*AtmCovar+rowCovar,calc7,t-d@orderVC+1]
+      }
+      
+      calc4 <- max(calc)
+      calc5 <- which(calc==calc4)
+      calc6 <- calc5[1]
+      calc7 <- floor((calc6-1)/(d@M^(t-d@orderVC-1)))+1
+      X[t] <- calc7
+    }
+    l[[n]] <- X
+  }
+  l
 }

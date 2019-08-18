@@ -15,9 +15,8 @@ The classes that inherit from march.Model are : \code{\link{march.Indep-class}},
    \describe{
      \item{\code{ll}:}{A \code{\link{numeric}} representing the log-likelihood for this model \emph{w.r.t} its 
      construction dataset.}
-     \item{\code{y}:}{The \code{\link[=march.Dataset-class]{march.DataSet-class}} used to construct the model.}
+     \item{\code{y}:}{The \code{\link{march.Dataset-class}} used to construct the model.}
      \item{\code{dsL}:}{A \code{\link{numeric}} representing the number of sample used to construct the model.}
      \item{\code{nbZeros}:}{A \code{\link{numeric}} representing the number of zeros created during model construction.}
      }
 }
-

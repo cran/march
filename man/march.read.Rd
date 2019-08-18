@@ -15,4 +15,3 @@ the march.Model contained into the file pointed by filename if it exists and con
 \description{
 Load a march.Model from a file pointed by \emph{filename} and check that the model is valid.
 }
-

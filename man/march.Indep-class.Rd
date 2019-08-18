@@ -17,7 +17,7 @@ from \code{\link{march.Model-class}} and therefore inherits its slots.
    member of the probability distribution.}
    }
 }
+
 \seealso{
 \code{\link{march.indep.construct}}, \code{\link{march.Model-class}}.
 }
-

@@ -7,17 +7,17 @@
 march.mc.construct(y, order, maxOrder = order)
 }
 \arguments{
-\item{y}{the \code{\link[=march.Dataset-class]{march.Dataset}} from which the homogeneous Markov chain will be constructed.}
+\item{y}{the \code{\link{march.Dataset-class}} from which the homogeneous Markov chain will be constructed.}
 
 \item{order}{the order of the constructed Markov Chain.}
 
 \item{maxOrder}{the maximum visible order among the set of Markovian models to compare.}
 }
 \value{
-the \code{\link[=march.Mc-class]{march.Mc}} of order \emph{order} constructed \emph{w.r.t} the dataset \emph{y} and maxOrder.
+the \code{\link{march.Mc-class}} of order \emph{order} constructed \emph{w.r.t} the dataset \emph{y} and maxOrder.
 }
 \description{
-A \code{\link[=march.Mc-class]{march.Mc}} object of order \emph{order} is constructed from
+A \code{\link{march.Mc-class}} object of order \emph{order} is constructed from
 the dataset \emph{y}. The first maxOrder-order elements of each sequence of the dataset are truncated in order to return a model
 which can be compared with other Markovian models of visible order maxOrder.
 }
@@ -28,10 +28,9 @@ model <- march.mc.construct(pewee,2)
 # print the reduced form of the transition matrix of the Markovian Model.
 print(model@RC)
 }
+\seealso{
+\code{\link{march.Mc-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
+}
 \author{
 Ogier Maitre
 }
-\seealso{
-\code{\link[=march.Mc-class]{march.Mc-class}}, \code{\link{march.Model-class}}, \code{\link[=march.Dataset-class]{march.Dataset-class}}.
-}
-

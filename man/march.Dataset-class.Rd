@@ -25,8 +25,10 @@ into the dictionary vector. Therefor, they are in the interval [1,K].
    \item{\code{N}:}{A \code{\link{integer}} value representing the number of sequence.}
    \item{\code{Dictionary}:}{A vector of \code{\link{character}} string representing the translation between 
    the yRaw and y data. Each character string is stored according to the integer which represents it into y.}
+   \item{\code{cov}:}{A matrix of \code{\link{integer}} representing the covariates.}
+   \item{\code{Kcov}:}{A vector of \code{\link{integer}} representing the number of possible output for each covariate.}
+   \item{\code{Ncov}:}{A \code{\link{integer}} value representing the number of covariates.}
  }
  @seealso \code{\link{march.dataset.loadFromFile}}, \code{\link{march.dataset.loadFromDataFrame}}
  @author Ogier Maitre
 }
-

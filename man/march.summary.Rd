@@ -17,4 +17,3 @@ Print key values for the current model.
 \author{
 Ogier Maitre & Andre Berchtold
 }
-

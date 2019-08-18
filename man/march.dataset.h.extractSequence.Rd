@@ -7,11 +7,13 @@
 march.dataset.h.extractSequence(y, i)
 }
 \arguments{
-\item{y}{is the dataset from which one sequence of data is extracted}
+\item{y}{A sequence of integers.}
 
-\item{i}{is the number of sequence to extract}
+\item{i}{The number of observations to keep.}
 }
 \description{
 Extract a sequence from a dataset.
 }
-
+\author{
+Ogier Maitre
+}

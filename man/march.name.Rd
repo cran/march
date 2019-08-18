@@ -22,4 +22,3 @@ march.name(model)
 \author{
 Ogier Maitre & Andre Berchtold
 }
-

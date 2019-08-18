@@ -19,12 +19,15 @@
 #'    \item{\code{N}:}{A \code{\link{integer}} value representing the number of sequence.}
 #'    \item{\code{Dictionary}:}{A vector of \code{\link{character}} string representing the translation between 
 #'    the yRaw and y data. Each character string is stored according to the integer which represents it into y.}
+#'    \item{\code{cov}:}{A matrix of \code{\link{integer}} representing the covariates.}
+#'    \item{\code{Kcov}:}{A vector of \code{\link{integer}} representing the number of possible output for each covariate.}
+#'    \item{\code{Ncov}:}{A \code{\link{integer}} value representing the number of covariates.}
 #'  }
 #'  @seealso \code{\link{march.dataset.loadFromFile}}, \code{\link{march.dataset.loadFromDataFrame}}
 #'  @author Ogier Maitre
 setClass("march.Dataset",
          representation(  yRaw="matrix",y="list","T"="vector",weights="vector",
-                          K="integer",N="integer",dictionary="vector"))
+                          K="integer",N="integer",dictionary="vector",cov="array",Kcov="vector",Ncov="integer"))
 
 # This class represents a discrete-valued time serie.
 # 
@@ -50,7 +53,7 @@ setClass("march.Sequence",representation(y="vector",weight="numeric",N="integer"
 #'    \describe{
 #'      \item{\code{ll}:}{A \code{\link{numeric}} representing the log-likelihood for this model \emph{w.r.t} its 
 #'      construction dataset.}
-#'      \item{\code{y}:}{The \code{\link[=march.Dataset-class]{march.DataSet-class}} used to construct the model.}
+#'      \item{\code{y}:}{The \code{\link{march.Dataset-class}} used to construct the model.}
 #'      \item{\code{dsL}:}{A \code{\link{numeric}} representing the number of sample used to construct the model.}
 #'      \item{\code{nbZeros}:}{A \code{\link{numeric}} representing the number of zeros created during model construction.}
 #'      }
@@ -111,13 +114,14 @@ setClass("march.Mc",contains="march.Model",representation(RC="array",order="inte
 #'  \describe{
 #'    \item{\code{Q}:}{A matrix of \code{\link{numeric}} representing the transition matrix associated with the 
 #'    current MTD model.}
+#'    \item{\code{S}:}{A list of matrices of \code{\link{numeric}} representing the transition matrices between the covariates and the dependent variable}
 #'    \item{\code{phi}:}{A vector of \code{\link{numeric}} representing the vector of lag parameters.}
 #'    \item{\code{order}:}{An \code{\link{integer}} representing the order of the model.}
 #'  }
 #'    
 #' @seealso \code{\link{march.mtd.construct}}, \code{\link{march.Model-class}}.
 setClass("march.Mtd",contains="march.Model",
-         representation(Q="array",phi="vector",order="integer"))
+         representation(RA="matrix",Q="array",phi="vector",S="list",order="integer",MCovar="vector"))
 
 
 #' A Double Chain Markov Model (DCMM).
@@ -142,11 +146,13 @@ setClass("march.Mtd",contains="march.Model",
 #'    \item{\code{M}:}{An \code{\link{integer}} value representing the number of hidden state.}
 #'    \item{\code{orderVC}:}{An \code{\link{integer}} value representing the order of the visible Markov chain.}
 #'    \item{\code{orderHC}:}{An \code{\link{integer}} value representing the order of the hidden Markov chain.}
+#'	  \item{\code{Amodel}:}{A vector of \code{\link{character}} string representing the modeling of the hidden transition matrix (complete, mtd or mtdg)}
+#'	  \item{\code{Cmodel}:}{A vector of \code{\link{character}} string representing the modeling of the visible transition matrix (complete, mtd or mtdg)}
 #'  }
 #'    
 #' @seealso \code{\link{march.dcmm.construct}}, \code{\link{march.Model-class}}.
 setClass( "march.Dcmm", 
-          representation(Pi="array",A="array",RB="array",M="integer",orderVC="integer",orderHC="integer"),
+        representation(Pi="array",A="array",RB="array",APhi="array", CPhi="array", ATCovar="list",CTCovar="list",M="integer",orderVC="integer",orderHC="integer",AQ="array",CQ="array",AMCovar="vector",CMCovar="vector",Amodel="character",Cmodel="character",AProbT="array",CProbT="array"),
           contains="march.Model");
 
 
@@ -154,11 +160,30 @@ setClass( "march.Dcmm",
 # Real EA algorithms should all use implementations of
 # these classes.
 setClass("march.ea.InitParameters",representation(fct="function"))
+setClass("march.ea.cov.InitParameters",representation(fct="function"))
 setClass("march.ea.EvalParameters",representation(fct="function"))
+setClass("march.ea.cov.EvalParameters",representation(fct="function"))
 setClass("march.ea.CrossoverParameters",representation(fct="function"))
+setClass("march.ea.cov.CrossoverParameters",representation(fct="function"))
 setClass("march.ea.MutationParameters",representation(fct="function"))
+setClass("march.ea.cov.MutationParameters",representation(fct="function"))
 setClass("march.ea.OptimizingParameters",representation(fct="function"))
+setClass("march.ea.cov.OptimizingParameters",representation(fct="function"))
 
+
+setClass("march.dcmm.cov.ea.InitParameters",contains="march.ea.cov.InitParameters",
+         representation( AConst="logical",
+                         M="integer",
+                         K="integer",
+                         orderVC="integer",
+                         orderHC="integer",
+                         y="march.Dataset",
+                         Amodel="character",
+                         Cmodel="character",
+                         AMCovar="vector",
+                         CMCovar="vector"
+         )
+)
 
 setClass("march.ea.Parameters",representation(
   crossoverProb="numeric",
@@ -173,6 +198,18 @@ setClass("march.ea.Parameters",representation(
   generation="integer")
 )
 
+setClass("march.ea.cov.Parameters",representation(
+  crossoverProb="numeric",
+  optimizing="logical",
+  
+  initParameters="march.ea.cov.InitParameters",
+  evalParameters="march.ea.cov.EvalParameters",
+  mutationParameters="march.ea.cov.MutationParameters",
+  crossoverParameters="march.ea.cov.CrossoverParameters",
+  optimizingParameters="march.ea.cov.OptimizingParameters",
+  populationSize="integer",
+  generation="integer")
+)
 
 # those are implementation of the abstract classes defined in march.ea.R
 # init, eval and mutation parameters :
@@ -190,10 +227,26 @@ setClass("march.dcmm.ea.EvalParameters",contains="march.ea.EvalParameters",
          representation(ds="march.Dataset")		
 )
 
+setClass("march.dcmm.cov.ea.EvalParameters",contains="march.ea.cov.EvalParameters",
+         representation(ds="march.Dataset")		
+)
+
 setClass("march.dcmm.ea.MutationParameters",contains="march.ea.MutationParameters",
          representation(pMut="numeric")
+)
+
+setClass("march.dcmm.cov.ea.MutationParameters",contains="march.ea.cov.MutationParameters",
+         representation(pMut="numeric",AConst="logical")
 )
 
 setClass("march.dcmm.ea.OptimizingParameters",contains="march.ea.OptimizingParameters",
          representation(ds="march.Dataset",iterBw="integer",stopBw="numeric")
 )
+
+setClass("march.dcmm.cov.ea.OptimizingParameters",contains="march.ea.cov.OptimizingParameters",
+         representation(ds="march.Dataset",iterBw="integer",stopBw="numeric")
+)
+
+setClass("march.AIC",representation(nbParams="numeric",AIC="numeric"))
+setClass("march.BIC",representation(nbParams="numeric",BIC="numeric"))
+

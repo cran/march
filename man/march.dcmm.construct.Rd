@@ -4,11 +4,13 @@
 \alias{march.dcmm.construct}
 \title{Construct a double chain Markov model (DCMM).}
 \usage{
-march.dcmm.construct(y, orderHC, orderVC, M, gen = 5, popSize = 4,
-  maxOrder = orderVC, seedModel = NULL, iterBw = 2, stopBw = 0.1)
+march.dcmm.construct(y, orderHC, orderVC, M = 2, gen = 5,
+  popSize = 4, maxOrder = orderVC, seedModel = NULL, iterBw = 2,
+  stopBw = 0.1, Amodel = "mtd", Cmodel = "mtd", AMCovar = 0,
+  CMCovar = 0, AConst = FALSE, pMut = 0.05, pCross = 0.5)
 }
 \arguments{
-\item{y}{the dataset from which the Dcmm will be constructed \code{\link[=march.Dataset-class]{march.Dataset}}.}
+\item{y}{the dataset from which the Dcmm will be constructed \code{\link{march.Dataset-class}}.}
 
 \item{orderHC}{the order of the hidden chain of the constructed Dcmm.}
 
@@ -27,12 +29,26 @@ march.dcmm.construct(y, orderHC, orderVC, M, gen = 5, popSize = 4,
 \item{iterBw}{the number of iteration performed by the Baum-Welch algorithm.}
 
 \item{stopBw}{the minimum increase in quality (log-likelihood) authorized in the Baum-Welch algorithm.}
+
+\item{Amodel}{the modeling of the hidden transition matrix (mtd, mtdg or complete)}
+
+\item{Cmodel}{the modeling of the visible transition matrix (mtd, mtdg or complete)}
+
+\item{AMCovar}{vector of the size Ncov indicating which covariables are used into the hidden process (0: no, 1:yes)}
+
+\item{CMCovar}{vector of the size Ncov indicating which covariables are used into the visible process (0: no, 1:yes)}
+
+\item{AConst}{logical, indicating whether or not the hidden transition matrix is diagonal constraint}
+
+\item{pMut}{mutation probability for the evolutionary algorithm}
+
+\item{pCross}{crossover probability for the evolutionary algorithm}
 }
 \value{
-the best \code{\link[=march.Dcmm-class]{march.Dcmm}} constructed by the EA or the result of the Baum-Welch algorithm on \emph{seedModel}.
+the best \code{\link{march.Dcmm-class}} constructed by the EA or the result of the Baum-Welch algorithm on \emph{seedModel}.
 }
 \description{
-Construct a \code{\link[=march.Dcmm-class]{march.Dcmm}} object, with visible order \emph{orderVC}, hidden order \emph{orderHC} and \emph{M} hidden states, according to a \code{\link[=march.Dataset-class]{march.Dataset}}.
+Construct a \code{\link{march.Dcmm-class}} object, with visible order \emph{orderVC}, hidden order \emph{orderHC} and \emph{M} hidden states, according to a \code{\link{march.Dataset-class}}.
 The first \emph{maxOrder}-\emph{orderVC} elements of each sequence are truncated in order to return a model
 which can be compared with other Markovian model of visible order maxOrder. The construction is performed either by an evolutionary algorithm (EA) or by improving an existing DCMM.
 The EA performs \emph{gen} generations on a population of \emph{popSize} individuals. The EA behaves as a Lamarckian evolutionary algorithm, using a Baum-Welch algorithm as
@@ -43,45 +59,35 @@ If a seedModel is provided, the only step executed is the optimization step, par
 # Construct a 2 hidden states DCMM for the pewee data
 # with hidden order set to 2 and visible order set to 1.
 # The estimation procedure uses both the evolutionary algorithm (population size 2, 
-# one iteration) and the Bauw-Welch algorithm (one iteration).
-march.dcmm.construct(y=pewee,orderHC=2,orderVC=1,M=2,popSize=2,gen=1,iterBw=1,stopBw=0.0001)
-
-\dontrun{
+# one generation) and the Bauw-Welch algorithm (one iteration).
+\dontrun{march.dcmm.construct(y=pewee,orderHC=2,
+                              orderVC=1,M=2,popSize=2,gen=1,iterBw=1,stopBw=0.0001)
  
 # Same as above, but the DCMM is replaced by a HMM (the visible order OrderVC is set to zero).
-march.dcmm.construct(y=pewee,orderHC=2,orderVC=0,M=2,popSize=2,gen=1,iterBw=1,stopBw=0.0001)  
-  
-# Construct a DCMM using an order 2 hidden chain,
-# a visible chain of order 3 and 3 hidden states.
+HMM<-march.dcmm.construct(y=pewee,orderHC=2,orderVC=0,M=2,popSize=2,gen=1,iterBw=1,stopBw=0.0001)  
+
 # A first model is computed using both EA and Baum-Welch algorithms.
-# Then the initial solution is improved through two rounds of Baum-Welch optimization.
+# The previous model is improved through two rounds of Baum-Welch optimization.
 models <- list()
-models[[length(models)+1]] <- march.dcmm.construct(y=pewee,orderHC=2,
-                                                   orderVC=3,M=3,popSize=2,gen=2)
+models[[length(models)+1]] <- HMM
 models[[length(models)+1]] <- march.dcmm.construct(y=pewee,seedModel=models[[1]],
-                                                   orderVC=3,iterBw=10,stopBw=0.001)
+                                                   orderVC=0,iterBw=10,stopBw=0.001)
 models[[length(models)+1]] <- march.dcmm.construct(y=pewee,seedModel=models[[2]],
-                                                   orderVC=3,iterBw=10,stopBw=0.0001)
+                                                   orderVC=0,iterBw=10,stopBw=0.0001)
 # Show performance indicators (ll, number of independent parameters,
 # BIC and AIC) for all computed models.
-r <- do.call(rbind,lapply(models,march.summary))
-print(r)
+#r <- do.call(rbind,lapply(models,march.summary))
+#print(r)
 
 # Construct a three hidden states, first-order HMM (hence OrderVC=0) for the sleep data.
 # By setting gen=1 and popSize=1, the estimation procedure uses only the Baum-Welch algorithm.
-HMM <- march.dcmm.construct(sleep,orderHC=1,orderVC=0,M=3,gen=1,popSize=1,iterBw=10,stopBw=0.0001)
-print(HMM)
-# Compute the best sequence of hidden states for each subject in the sleep data.
-HS <- march.dcmm.viterbi(HMM,sleep)
-# Display the hidden states for the first 10 subjects.
-print(HS[1:10])
+HMM <- march.dcmm.construct(pewee,orderHC=1,orderVC=0,M=2,gen=1,popSize=1,iterBw=10,stopBw=0.0001)}
 
-}
-}
-\author{
-Ogier Maitre
+
 }
 \seealso{
-\code{\link[=march.Dcmm-class]{march.Dcmm-class}}, \code{\link{march.Model-class}}, \code{\link[=march.Dataset-class]{march.Dataset-class}}.
+\code{\link{march.Dcmm-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 }
-
+\author{
+Emery Kevin
+}

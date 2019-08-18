@@ -15,4 +15,3 @@ to the march.name function.}
 This method is called with the object "march.Indep" and provides it 
 to the march.name function.
 }
-

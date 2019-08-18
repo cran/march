@@ -27,9 +27,11 @@ The model used here is described in :
    \item{\code{M}:}{An \code{\link{integer}} value representing the number of hidden state.}
    \item{\code{orderVC}:}{An \code{\link{integer}} value representing the order of the visible Markov chain.}
    \item{\code{orderHC}:}{An \code{\link{integer}} value representing the order of the hidden Markov chain.}
+  \item{\code{Amodel}:}{A vector of \code{\link{character}} string representing the modeling of the hidden transition matrix (complete, mtd or mtdg)}
+  \item{\code{Cmodel}:}{A vector of \code{\link{character}} string representing the modeling of the visible transition matrix (complete, mtd or mtdg)}
  }
 }
+
 \seealso{
 \code{\link{march.dcmm.construct}}, \code{\link{march.Model-class}}.
 }
-

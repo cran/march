@@ -19,7 +19,7 @@ inherits its slots.
    transition row of the current RC matrix.}
  }
 }
+
 \seealso{
 \code{\link{march.mc.construct}}, \code{\link{march.Model-class}}.
 }
-

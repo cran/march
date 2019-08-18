@@ -36,6 +36,5 @@ print(MTD3)
 march.thompson(MTD3,alpha=0.05)
 }
 \author{
-Ogier Maitre
+Ogier Maitre, Kevin Emery
 }
-
