@@ -19,7 +19,7 @@ The model used here is described into :
  Journal of Time Series Analysis, 22 (4) (2001), pp. 379-397
 }
 
-@section Slots:
+ @section Slots:
  \describe{
    \item{\code{Q}:}{A matrix of \code{\link{numeric}} representing the transition matrix associated with the 
    current MTD model.}

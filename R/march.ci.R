@@ -1,7 +1,51 @@
-# TODO: Add comment
+# This file is part of March.
+# It contains functions for the computation of confidence intervals.
 # 
-# Author: SSP24298
-###############################################################################
+# March is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Foobar is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyrigth 2014-2020, Ogier Maitre, Kevin Emery, André Berchtold 
+# andre.berchtold@unil.ch 
+
+
+
+
+##############################################################################
+##############################################################################
+# Tool functions used fo CIs
+
+march.bailey.ci <- function(ni,N,alpha,k){
+  
+  if (ni>0){
+    pMinus <- max((ni-(1/8))/(N+(1/8)),0)
+    pPlus <- min((ni+(7/8))/(N+(1/8)),1)
+    
+    B <- qchisq(1-(alpha/k),1)
+    C <- B/(4*N)
+    
+    t1 <- (sqrt(pMinus)-sqrt(C*(C+1-pMinus)))^2
+    t2 <- (sqrt(pPlus)+sqrt(C*(C+1-pPlus)))^2
+    t3 <- (C+1)^2
+    
+    LowerBd <- t1/t3
+    UpperBd <- t2/t3
+    
+    list(LowerBd,UpperBd) 
+  } else {
+    list(0,0)
+  }
+  
+}
 
 
 march.ci.h.A <- function(n,ni){
@@ -150,26 +194,6 @@ march.mtd.h.z.tot <- function(mtd,ys,t,n,is_mtdg){
       s <- s+mtd@phi[mtd@order+j]*mtd@S[[j]][mtd@y@cov[n,t,placeCovar[j]],ys@y[t]]
   }
   s
-}
-
-march.indep.bailey <- function( indep, alpha ){
-  n <- sum(indep@dsL)
-  
-  p <- array(NA,c(2,indep@K))
-  colnames(p) <- indep@y@dictionary
-  rownames(p) <- c("p-","p+")
-  for( i in 1:indep@K){
-    ni <- indep@indC[i]
-    A <- march.ci.h.A(n,ni)
-    B <- march.ci.h.B(n,ni)	
-    C <- march.ci.h.C(alpha,indep@K,n)
-    
-    p["p-",i] = (sqrt(A)-sqrt(C*(C+1-A)))^2/(C+1)^2
-    p["p+",i] = (sqrt(B)+sqrt(C*(C+1-B)))^2/(C+1)^2
-  }
-  
-  
-  p
 }
 
 

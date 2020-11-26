@@ -1,6 +1,6 @@
-# Performance indicators for markovian models.
+# Comparison indicators for markovian models.
 # 
-# Author: Ogier Maitre
+# Authors: Ogier Maitre, Andre Berchtold
 ###############################################################################
 
 #' Compute Bayesian Information Criterion (BIC).
@@ -19,7 +19,7 @@
 march.BIC <- function(model){
   nbParams <- march.nbParams(model)
   
-	BIC <- 2*model@ll + nbParams*log(model@dsL)
+	BIC <- -2*model@ll + nbParams*log(model@dsL)
 	new("march.BIC",nbParams=nbParams,BIC=BIC)
 	
 }

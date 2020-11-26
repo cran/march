@@ -12,7 +12,7 @@ its length and weights.
 The internal representation uses factor-like representation. The integer values correspond to the words stored
 into the dictionary vector. Therefor, they are in the interval [1,K].
 
-@section Slots:
+ @section Slots:
  \describe{
    \item{\code{yRaw}:}{A matrix of \code{\link{character}} string, describing the content of 
    the original dataset or file, if any.}

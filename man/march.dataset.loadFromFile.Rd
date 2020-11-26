@@ -4,8 +4,7 @@
 \alias{march.dataset.loadFromFile}
 \title{Load a dataset from a file.}
 \usage{
-march.dataset.loadFromFile(filename, MARGIN = 2, sep = ",",
-  weights = NA)
+march.dataset.loadFromFile(filename, MARGIN = 2, sep = ",", weights = NA)
 }
 \arguments{
 \item{filename}{The complete path to the text file containing the dataset.}

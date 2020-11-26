@@ -437,25 +437,26 @@ OptimizeQ <- function(q,j,pd_q,delta,delta_stop,ll,n_i0_il,q_i0_il,phi,i0_il,k,l
 }
 
 OptimizeS <-function(order,k,kcov,ncov,S,Tr,phi,pcol,ll,pd_s,delta,delta_stop,n_i0_il,i0_il,q_i0_il,q,n){
-  
+
   delta_it<-delta
   i_inc<-which.max(pd_s)
-  i_dec<-which.max(pd_s)
+  i_dec<-which.min(pd_s)
   par_inc<-S[[n]][Tr,i_inc]
   par_dec<-S[[n]][Tr,i_dec]
-  
+
   if(par_inc==1){
     return(list(S=S,ll=ll,delta=delta,q_i0_il=q_i0_il))
   }
+
   if(par_dec==0){
     pd_s_sorted<-sort(pd_s,index.return=TRUE)
-    i_dec<-pd_s_sorted$ix[min(which(S[Tr,pd_s_sorted$ix]>0))]
+    i_dec<-pd_s_sorted$ix[min(which(S[[n]][Tr,pd_s_sorted$ix]>0))]
     par_dec<-S[[n]][Tr,i_dec]
   }
-  
+
   delta_it <- min(c(delta_it,1-par_inc,par_dec))
   new_S_row<-S[[n]][Tr,]
- 
+
   while(TRUE){
     new_S_row[i_inc]<-par_inc+delta_it
     new_S_row[i_dec]<-par_dec-delta_it
@@ -493,12 +494,13 @@ OptimizeS <-function(order,k,kcov,ncov,S,Tr,phi,pcol,ll,pd_s,delta,delta_stop,n_
 #' @param deltaStop the delta below which the optimization phases of phi and Q stop.
 #' @param llStop the ll increase below which the EM algorithm stop.
 #' @param maxIter the maximal number of iterations of the optimisation algorithm (zero for no maximal number).
+#' @param seedModel an object containing a MTD or a DCMM model used to initialize the parameters of the MTD model.
 #'
-#' @author Ogier Maitre, Kevin Emery
+#' @author Ogier Maitre, Kevin Emery, Andre Berchtold
 #' @example tests/examples/march.mtd.construct.example.R
 #' @seealso \code{\link{march.Mtd-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 #' @export
-march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init="best", deltaStop=0.0001, llStop=0.01, maxIter=0){
+march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init="best", deltaStop=0.0001, llStop=0.01, maxIter=0, seedModel=NULL){
   order <- march.h.paramAsInteger(order)
   if(order<1){
     stop('Order should be greater or equal than 1')
@@ -529,12 +531,59 @@ march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init=
   init_method <- init
   # 1.1. Choose initial values for all parameters
   # nt <- BuildArrayNumberOfDataItems(y) This is no longer needed, as y now contains the T field
+
+  # Standard initialization
   c <- BuildContingencyTable(y,order)
   u <- CalculateTheilU(y,order,c)
   init_params <- InitializeParameters(u=u,init_method=init_method,c=c,is_mtdg=is_mtdg,m=y@K,order=order,kcov=y@Kcov,ncov=y@Ncov)
   phi <- init_params$phi
   q <- init_params$q
   S <- init_params$S
+  
+  if (class(seedModel)=="march.Mtd"){
+	  # Initialization from a previous MTD model
+    # phi
+    for (i in 1:(order+y@Ncov)){
+      phi[i] <- seedModel@phi[i]
+    }
+    # q
+    if (is_mtdg==F){
+      q[1,,] <- seedModel@Q[1,,]
+    }else{
+      for (i in 1:order){
+        q[i,,] <- seedModel@Q[i,,]
+      }
+    }
+    # S
+    if (sum(MCovar)>0){
+      for (i in 1:sum(MCovar)){
+        S[[i]] <- seedModel@S[[i]]
+      }
+    }
+  }
+
+
+  if (class(seedModel)=="march.Dcmm"){
+    # Initialization from a previous DCMM
+    # phi
+    for (i in 1:(order+y@Ncov)){
+      phi[i] <- seedModel@CPhi[1,i,1]
+    }
+    # q
+    if (is_mtdg==F){
+      q[1,,] <- seedModel@CQ[1,,,1]
+    }else{
+      for (i in 1:order){
+        q[i,,] <- seedModel@CQ[i,,,1]
+      }
+    }
+    # S
+    if (sum(MCovar)>0){
+      for (i in 1:sum(MCovar)){
+        S[[i]] <- seedModel@CTCovar[[i]][,,1]
+      }
+    }
+  }
 
 
   # 1.2. Choose a value for delta and a criterion to stop the algorithm
@@ -549,7 +598,8 @@ march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init=
   # 2. Iterations
   # 2.1. Reestimate the vector phi by modifying two of its elements
   # 2.2. Reestimate the transition matrix Q by modifying two elements of each row
-
+  # 2.3. Reestimate the transition matrices of the covariates by modifying two elements of each row
+  
   # 3. End criterion
   # 3.1. If the increase of the LL since the last iteration is greater than the stop criterion, go back to step 2
   # 3.2. Otherwise, end the procedure
@@ -594,6 +644,8 @@ march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init=
     }
     new_ll <- llTmp[llMaxId]
     
+
+    # Reestimation of the transition matrices of covariates
     if(y@Ncov>0){
       tot=0
       for (i in 1:y@Ncov){
@@ -607,8 +659,20 @@ march.mtd.construct <- function(y,order,maxOrder=order,mtdg=FALSE,MCovar=0,init=
         }
       }
     }
-    
+
     if (new_ll - ll < ll_stop){ break }
+  }
+  
+  # Rounding of near-zero probabilities
+  # The goal is to avoid to keep infinitesimal probabilities that are counted
+  # as parameters without reasons.
+  # In a next version, an option could be added to choose whether performing this action or not.  
+  phi <- round(phi,10)
+  q <- round(q,10)
+  if(sum(MCovar)>0){
+      for(i in 1:sum(MCovar)){
+		S[[i]] <- round(S[[i]], 10)
+	  }
   }
   
   #Computation of the number of zeros

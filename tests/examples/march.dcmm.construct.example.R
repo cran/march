@@ -18,8 +18,8 @@ models[[length(models)+1]] <- march.dcmm.construct(y=pewee,seedModel=models[[2]]
                                                    orderVC=0,iterBw=10,stopBw=0.0001)
 # Show performance indicators (ll, number of independent parameters,
 # BIC and AIC) for all computed models.
-#r <- do.call(rbind,lapply(models,march.summary))
-#print(r)
+r <- do.call(rbind,lapply(models,march.summary))
+print(r)
 
 # Construct a three hidden states, first-order HMM (hence OrderVC=0) for the sleep data.
 # By setting gen=1 and popSize=1, the estimation procedure uses only the Baum-Welch algorithm.

@@ -5,23 +5,23 @@
 #' which can be compared with other Markovian model of visible order maxOrder. The construction is performed either by an evolutionary algorithm (EA) or by improving an existing DCMM.
 #' The EA performs \emph{gen} generations on a population of \emph{popSize} individuals. The EA behaves as a Lamarckian evolutionary algorithm, using a Baum-Welch algorithm as
 #' optimization step, running until log-likelihood improvement is less than \emph{stopBw} or for \emph{iterBw} iterations. Finally only the best individual from the population is returned as solution.
-#' If a seedModel is provided, the only step executed is the optimization step, parameters related to the EA does not apply in this case.
+#' If a seedModel is provided, the only step executed is the optimization step, parameters related to the EA do not apply in this case.
 #'
 #' @param y the dataset from which the Dcmm will be constructed \code{\link{march.Dataset-class}}.
 #' @param orderHC the order of the hidden chain of the constructed Dcmm.
 #' @param orderVC the order of the visible chain of the constructed Dcmm (0 for a HMM).
-#' @param M the number of hidden state of the Dcmm.
-#' @param gen the number of generation performed by the EA.
-#' @param popSize the number of individual stored into the population.
+#' @param M the number of hidden states of the Dcmm.
+#' @param gen the number of generations performed by the EA.
+#' @param popSize the number of individuals stored into the population.
 #' @param maxOrder the maximum visible order among the set of Markovian models to compare.
 #' @param seedModel a model to optimize using Baum-Welch algorithm.
-#' @param iterBw the number of iteration performed by the Baum-Welch algorithm.
+#' @param iterBw the number of iterations performed by the Baum-Welch algorithm.
 #' @param stopBw the minimum increase in quality (log-likelihood) authorized in the Baum-Welch algorithm.
 #' @param Amodel the modeling of the hidden transition matrix (mtd, mtdg or complete)
 #' @param Cmodel the modeling of the visible transition matrix (mtd, mtdg or complete)
 #' @param AMCovar vector of the size Ncov indicating which covariables are used into the hidden process (0: no, 1:yes)
 #' @param CMCovar vector of the size Ncov indicating which covariables are used into the visible process (0: no, 1:yes)
-#' @param AConst logical, indicating whether or not the hidden transition matrix is diagonal constraint
+#' @param AConst logical, indicating whether or not the hidden transition matrix has the identity (diagonal) constraint
 #' @param pMut mutation probability for the evolutionary algorithm
 #' @param pCross crossover probability for the evolutionary algorithm
 #'
@@ -135,6 +135,7 @@ march.dcmm.construct <- function(y,orderHC,orderVC,M=2,gen=5,popSize=4,maxOrder=
     res$best
     
   }
+  
 }
 
 

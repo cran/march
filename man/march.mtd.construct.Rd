@@ -4,9 +4,18 @@
 \alias{march.mtd.construct}
 \title{Construct a Mixture Transition Distribution (MTD) model.}
 \usage{
-march.mtd.construct(y, order, maxOrder = order, mtdg = FALSE,
-  MCovar = 0, init = "best", deltaStop = 1e-04, llStop = 0.01,
-  maxIter = 0)
+march.mtd.construct(
+  y,
+  order,
+  maxOrder = order,
+  mtdg = FALSE,
+  MCovar = 0,
+  init = "best",
+  deltaStop = 1e-04,
+  llStop = 0.01,
+  maxIter = 0,
+  seedModel = NULL
+)
 }
 \arguments{
 \item{y}{the dataset (\code{\link{march.Dataset-class}}) from which to construct the model.}
@@ -26,6 +35,8 @@ march.mtd.construct(y, order, maxOrder = order, mtdg = FALSE,
 \item{llStop}{the ll increase below which the EM algorithm stop.}
 
 \item{maxIter}{the maximal number of iterations of the optimisation algorithm (zero for no maximal number).}
+
+\item{seedModel}{an object containing a MTD or a DCMM model used to initialize the parameters of the MTD model.}
 }
 \description{
 A Mixture Transition Distribution model (\code{\link{march.Mtd-class}}) object of order \emph{order} is constructed
@@ -47,5 +58,5 @@ print(model)
 \code{\link{march.Mtd-class}}, \code{\link{march.Model-class}}, \code{\link{march.Dataset-class}}.
 }
 \author{
-Ogier Maitre, Kevin Emery
+Ogier Maitre, Kevin Emery, Andre Berchtold
 }

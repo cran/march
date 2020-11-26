@@ -4,8 +4,13 @@
 \alias{march.dataset.loadFromDataFrame}
 \title{Construct a dataset from a data.frame or a matrix.}
 \usage{
-march.dataset.loadFromDataFrame(dataframe, MARGIN = 2, weights = NA,
-  missingDataRep = NA, covariates = NULL)
+march.dataset.loadFromDataFrame(
+  dataframe,
+  MARGIN = 2,
+  weights = NA,
+  missingDataRep = NA,
+  covariates = NULL
+)
 }
 \arguments{
 \item{dataframe}{A \code{\link{data.frame}} containing the dataset.}

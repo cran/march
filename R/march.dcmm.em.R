@@ -345,6 +345,10 @@ march.dcmm.cov.em <- function(d,AMDelta,CMDelta,ConstAPhi,ConstCPhi){
 
 march.dcmm.fp.cov<-function(d,s,Covar,AtmCovar,CtmCovar){
   
+  # flag for possible degenerescence of the log-likelihood
+  flag <- 1
+  
+  
 	ordHC <- d@orderHC
   	if(ordHC==0){ordHC <- 1}
   
@@ -392,6 +396,7 @@ march.dcmm.fp.cov<-function(d,s,Covar,AtmCovar,CtmCovar){
 	mA <- sum(SAlpha[1:d@M,d@orderVC+1])/d@M
   
 	if(mA==0){
+	  flag <- 0
 		SAlpha[1:d@M,d@orderVC+1] <- rep(1,d@M)
 		SAlog[d@orderVC+1] <- log(1/d@M)
 	}else{
@@ -446,8 +451,9 @@ march.dcmm.fp.cov<-function(d,s,Covar,AtmCovar,CtmCovar){
     		mA <- sum(SAlpha[1:d@M^(t-d@orderVC),t])/(d@M^(t-d@orderVC))
     
     		if(mA==0){
-      			SAlpha[1:d@M^(t-d@orderVC),t] <- rep(1,d@M^(t-d@orderVC))
-      			SAlog[t] <- log(1/(d@M^(t-d@orderVC)))
+    		  flag <- 0
+      		SAlpha[1:d@M^(t-d@orderVC),t] <- rep(1,d@M^(t-d@orderVC))
+      		SAlog[t] <- log(1/(d@M^(t-d@orderVC)))
     		}else{
 				SAlpha[1:d@M^(t-d@orderVC),t] <- SAlpha[1:d@M^(t-d@orderVC),t]/mA
 				SAlog[t] <- log(mA)
@@ -501,6 +507,7 @@ march.dcmm.fp.cov<-function(d,s,Covar,AtmCovar,CtmCovar){
 		mA <- sum(SAlpha[,t+1])/(d@M^ordHC)
     
 		if(mA==0){
+		  flag <- 0
 			SAlpha[,t+1] <- rep(1,d@M^ordHC)
 			SAlog[t+1] <- log(1/d@M^ordHC)
 		}else{
@@ -509,11 +516,13 @@ march.dcmm.fp.cov<-function(d,s,Covar,AtmCovar,CtmCovar){
 		}
 	}
   
-  
 	# Computation of the log-likelihood
-	LLAlpha <- log(sum(SAlpha[,s@N]))+sum(SAlog)
-  
-  
+	if (flag==0){
+	  LLAlpha <- 1000000
+	} else{
+	  LLAlpha <- log(sum(SAlpha[,s@N]))+sum(SAlog)	  
+	}
+
 	list(SAlog=SAlog,LLAlpha=LLAlpha,SAlpha=SAlpha)
 }
 
